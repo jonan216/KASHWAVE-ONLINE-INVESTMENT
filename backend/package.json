@@ -1,0 +1,29 @@
+{
+  "name": "kashwave-backend",
+  "version": "1.0.0",
+  "description": "Production-ready backend API for Kashwave Online Investment Platform",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node src/app.js",
+    "db:seed": "node src/utils/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "express-validator": "^7.1.0",
+    "file-type": "^22.0.1",
+    "helmet": "^8.3.0",
+    "hpp": "^0.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "nodemailer": "^9.0.4",
+    "pg": "^8.12.0",
+    "qrcode": "^1.5.3",
+    "speakeasy": "^2.0.0"
+  }
+}

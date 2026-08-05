@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: kashwave-api
+    runtime: node
+    build:
+      buildCommand: npm install
+    start: npm start
+    healthCheck: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: CLIENT_ORIGIN
+        value: https://kashwave-frontend.vercel.app
+      # Database will be set via Supabase DATABASE_URL in the dashboard
+      # Secrets must be generated: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+      # - key: JWT_SECRET
+      #   value: (set in Render dashboard)
+      # - key: REFRESH_SECRET
+      #   value: (set in Render dashboard)
+      # - key: PAYMENT_WEBHOOK_SECRET
+      #   value: (set in Render dashboard)
