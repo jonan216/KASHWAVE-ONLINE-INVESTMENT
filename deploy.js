@@ -63,8 +63,8 @@ console.log(`
     } catch {}
 
     if (!hasRemote) {
-      const githubUser = await ask('  GitHub username/org: ');
-      const repoName = await ask('  Repository name (press Enter for KASHWAVE-ONLINE-INVESTMENT): ') || 'KASHWAVE-ONLINE-INVESTMENT';
+      const githubUser = 'Jjonan216';
+      const repoName = 'KASHWAVE-ONLINE-INVESTMENT';
       run(`git remote add origin https://github.com/${githubUser}/${repoName}.git`, ROOT);
     }
 
