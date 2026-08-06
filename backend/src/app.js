@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const env = require('./config/env');
-const { testConnection } = require('./config/db');
+const { testConnection, isPostgresConnected } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
 // Route imports
@@ -77,6 +77,32 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/dbtest', async (req, res) => {
+  try {
+    const { pool, isPostgresConnected } = require('./config/db');
+    if (!pool) return res.json({ connected: false, reason: 'no_pool', env: process.env.PGHOST });
+    const client = await pool.connect();
+    const r = await client.query('SELECT NOW()');
+    client.release();
+    res.json({ connected: true, time: r.rows[0].now, isPostgresConnected });
+  } catch (e) {
+    res.json({ connected: false, error: e.message, code: e.code, host: process.env.PGHOST });
+  }
+});
+
+app.get('/api/dbtest', async (req, res) => {
+  try {
+    const { pool, isPostgresConnected } = require('./config/db');
+    if (!pool) return res.json({ connected: false, reason: 'no_pool' });
+    const client = await pool.connect();
+    const r = await client.query('SELECT NOW()');
+    client.release();
+    res.json({ connected: true, time: r.rows[0].now, isPostgresConnected });
+  } catch (e) {
+    res.json({ connected: false, error: e.message });
+  }
+});
+
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/investments', investmentRoutes);
@@ -94,16 +120,18 @@ app.use((req, res) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// Start server
-if (process.env.NODE_ENV !== 'test') {
-  testConnection().then(() => {
+// Always test DB connection, start server only locally
+testConnection().then(() => {
+  const connected = isPostgresConnected();
+  console.log(connected ? 'PostgreSQL Database Connected Successfully.' : 'Using in-memory Mock Store mode.');
+  if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
     app.listen(env.PORT, () => {
       console.log(`=======================================================`);
       console.log(`  KASHWAVE API Server running on port ${env.PORT}`);
       console.log(`  Environment: ${env.NODE_ENV}`);
       console.log(`=======================================================`);
     });
-  });
-}
+  }
+});
 
 module.exports = app;

@@ -36,12 +36,7 @@ const LoginPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (type) => {
-    setEmail(type === 'admin' ? 'admin@kashwave.com' : 'investor@kashwave.com');
-    setPassword(type === 'admin' ? 'admin123' : 'investor123');
-  };
+   };
 
   return (
     <div className="min-h-screen bg-[#F8F4E8] font-poppins flex">
@@ -130,36 +125,9 @@ const LoginPage = () => {
                 ? 'Enter the 6-digit code from your authenticator app.'
                 : 'Access your investment portfolio and earnings dashboard.'}
             </p>
-          </div>
+           </div>
 
-          {/* Demo Credentials Banner */}
-          {!requires2FA && (
-            <div className="mb-6 p-4 bg-[#D4AF37]/8 border border-[#D4AF37]/25 rounded-2xl">
-              <p className="text-[11px] font-bold text-[#D4AF37] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                <FiCheckCircle className="w-3.5 h-3.5" /> Demo Access — Click to Auto-Fill
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => fillDemo('investor')}
-                  className="py-2 px-3 bg-white border border-[#102542]/12 hover:bg-[#F8F4E8] rounded-xl text-xs font-bold text-[#102542] transition-colors text-left"
-                >
-                  <span className="block text-[#D4AF37] text-[9px] uppercase font-bold">Investor Demo</span>
-                  investor@kashwave.com
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo('admin')}
-                  className="py-2 px-3 bg-[#102542] hover:bg-[#0A182B] rounded-xl text-xs font-bold text-white transition-colors text-left"
-                >
-                  <span className="block text-[#D4AF37] text-[9px] uppercase font-bold">Admin Demo</span>
-                  admin@kashwave.com
-                </button>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
+           <form onSubmit={handleLogin} className="space-y-4">
             {!requires2FA ? (
               <>
                 {/* Email */}

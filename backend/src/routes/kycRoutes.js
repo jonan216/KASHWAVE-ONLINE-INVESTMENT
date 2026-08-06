@@ -6,7 +6,6 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { fromStream } = require('file-type');
 const authenticateToken = require('../middleware/authMiddleware');
 const { auditMiddleware } = require('../middleware/auditLogger');
 const { submitKYC, getKYCStatus, KYC_UPLOAD_DIR } = require('../services/kycService');
@@ -49,6 +48,7 @@ async function validateKYCFile(req, file, cb) {
       return cb(new Error('Selfie photo must be under 2MB.'));
     }
 
+    const { fromStream } = await import('file-type');
     const stream = fs.createReadStream(file.path);
     const detected = await fromStream(stream, { expectedType: [expectedMime] });
 

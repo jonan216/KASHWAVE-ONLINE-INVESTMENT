@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS wallets (
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS investment_plans (
     id SERIAL PRIMARY KEY,
-    title VARCHAR(100) NOT NULL UNIQUE,
+    title VARCHAR(100) NOT NULL,
     description TEXT,
     daily_return_percent NUMERIC(5, 2) NOT NULL CHECK (daily_return_percent > 0),
     duration_days INTEGER NOT NULL CHECK (duration_days > 0),
@@ -61,7 +61,6 @@ CREATE TABLE IF NOT EXISTS investment_plans (
     salary_bonus NUMERIC(15, 2) DEFAULT 0.00 CHECK (salary_bonus >= 0),
     risk_level VARCHAR(20) DEFAULT 'medium' CHECK (risk_level IN ('low', 'medium', 'high', 'vip')),
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    currency VARCHAR(10) NOT NULL DEFAULT 'UGX' CHECK (currency IN ('UGX', 'USD')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

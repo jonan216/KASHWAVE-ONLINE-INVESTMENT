@@ -52,7 +52,7 @@ const MOCK_NOTIFICATIONS = [
     icon: FiInfo,
     color: 'bg-[#6366F1]/10 text-[#6366F1]',
     title: 'New Investment Plans Available',
-    body: 'We have upgraded our Diamond Tier — now offering 4.80% daily ROI for contracts above $15,000.',
+     body: 'We have upgraded our Diamond Tier — now offering 5% daily ROI for contracts above $15,000.',
     time: '2 days ago',
     read: true,
   },

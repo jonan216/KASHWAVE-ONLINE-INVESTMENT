@@ -160,7 +160,7 @@ console.log(`
           { key: 'CLIENT_ORIGIN', value: 'https://kashwave-frontend.vercel.app' },
           { key: 'PAYMENT_PROVIDER_NAME', value: 'Marz Innovations' },
           { key: 'PAYMENT_PROVIDER_EMAIL', value: 'tumukwasibwereymond@gmail.com' },
-          { key: 'PAYMENT_PROVIDER_PHONE', value: '+256790193349' },
+          { key: 'PAYMENT_PROVIDER_PHONE', value: '+256771178213' },
         ]
       });
 

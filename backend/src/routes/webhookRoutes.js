@@ -50,4 +50,16 @@ router.post('/manual', async (req, res) => {
   }
 });
 
+// POST /api/webhooks/flutterwave — Flutterwave card payment callback
+router.post('/flutterwave', async (req, res) => {
+  try {
+    const signature = req.headers['verif-hash'];
+    await processVerifiedWebhook({ providerName: 'card', rawPayload: req.body, signature, req });
+    res.status(200).json({ status: 'received' });
+  } catch (err) {
+    await writeAuditLog({ action: 'webhook_error', description: `Flutterwave webhook error: ${err.message}`, severity: 'critical', ipAddress: req.ip });
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 module.exports = router;

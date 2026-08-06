@@ -1,28 +1,39 @@
 /**
  * Marz Innovations — Manual Payment Provider
- * For bank transfers and admin-verified payments.
- * Credentials loaded from environment variables.
- * Contact: tumukwasibwereymond@gmail.com | +256 790 193349
+ * Uganda-based mobile money & bank transfer processor.
+ * Credentials loaded from environment variables for security.
+ * Contact: tumukwasibwereymond@gmail.com | +256 771 178213
  */
 const env = require('../../config/env');
 
-const initPayment = async ({ amount, currency = 'UGX', reference }) => {
+const initPayment = async ({ amount, currency = 'UGX', reference, phone }) => {
+  const providerName = env.PAYMENT_PROVIDER_NAME || 'Marz Innovations';
+  const contactEmail = env.PAYMENT_PROVIDER_EMAIL || 'tumukwasibwereymond@gmail.com';
+  const contactPhone = env.PAYMENT_PROVIDER_PHONE || '+256771178213';
+
   return {
-    provider: env.PAYMENT_PROVIDER_NAME || 'manual',
+    provider: providerName,
     reference,
-    contact_email: env.PAYMENT_PROVIDER_EMAIL || 'tumukwasibwereymond@gmail.com',
-    contact_phone: env.PAYMENT_PROVIDER_PHONE || '+256790193349',
+    contact_email: contactEmail,
+    contact_phone: contactPhone,
+    amount: Number(amount),
+    currency,
     instructions: [
+      `${providerName} Payment Instructions:`,
       `Transfer ${currency} ${Number(amount).toLocaleString()} to Marz Innovations:`,
-      `Mobile Money: Send to ${env.PAYMENT_PROVIDER_PHONE || '0790193349'} (Marz Innovations)`,
-      `Bank Transfer: Contact ${env.PAYMENT_PROVIDER_EMAIL || 'tumukwasibwereymond@gmail.com'} for bank details`,
+      `Mobile Money: Send to ${contactPhone} (Marz Innovations)`,
+      `Bank Transfer: Contact ${contactEmail} for bank details`,
       `Use Reference: ${reference}`,
-      `After payment, upload your receipt/proof in the deposit form.`
+      `After payment, submit your transaction ID in the deposit form.`
     ].join('\n'),
     status: 'pending'
   };
 };
 
-const verifyPayment = async (reference) => ({ verified: false, reference, provider: 'manual' });
-module.exports = { initPayment, verifyPayment };
+const verifyPayment = async (reference) => ({
+  verified: false,
+  reference,
+  provider: env.PAYMENT_PROVIDER_NAME || 'Marz Innovations'
+});
 
+module.exports = { initPayment, verifyPayment };

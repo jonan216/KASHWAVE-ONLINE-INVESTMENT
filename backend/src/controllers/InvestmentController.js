@@ -36,7 +36,7 @@ class InvestmentController {
       if (numAmount < parseFloat(plan.min_investment) || numAmount > parseFloat(plan.max_investment)) {
         return res.status(400).json({
           success: false,
-          message: `Investment amount must be between $${plan.min_investment} and $${plan.max_investment}.`
+          message: `Investment amount must be between UGX ${plan.min_investment} and UGX ${plan.max_investment}.`
         });
       }
 
@@ -44,7 +44,7 @@ class InvestmentController {
       if (!wallet || parseFloat(wallet.main_balance) < numAmount) {
         return res.status(400).json({
           success: false,
-          message: `Insufficient main balance ($${wallet?.main_balance || 0}). Please make a deposit first.`
+          message: `Insufficient main balance (UGX ${wallet?.main_balance || 0}). Please make a deposit first.`
         });
       }
 

@@ -12,10 +12,10 @@ const ProfitCalculator = ({ plans = [] }) => {
   };
 
   const [selectedPlanId, setSelectedPlanId] = useState(defaultPlan.id);
-  const [amount, setAmount] = useState(500);
+  const [amount, setAmount] = useState('');
 
   const selectedPlan = plans.find(p => p.id === parseInt(selectedPlanId)) || defaultPlan;
-  const numAmount = parseFloat(amount || selectedPlan.min_investment);
+  const numAmount = parseFloat(amount) || 0;
   const dailyReturn = (numAmount * parseFloat(selectedPlan.daily_return_percent)) / 100;
   const totalProfit = dailyReturn * parseInt(selectedPlan.duration_days);
   const totalPayout = numAmount + totalProfit;
@@ -72,26 +72,26 @@ const ProfitCalculator = ({ plans = [] }) => {
               <label className="text-xs font-bold text-[#102542]/70 uppercase tracking-widest">
                 Investment Amount
               </label>
-              <span className="text-lg font-extrabold text-[#D4AF37]">
-                ${numAmount.toLocaleString('en-US')}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={selectedPlan.min_investment}
-              max={selectedPlan.max_investment}
-              step="50"
-              value={amount}
-              onChange={e => setAmount(Number(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, #D4AF37 ${((amount - selectedPlan.min_investment) / (selectedPlan.max_investment - selectedPlan.min_investment)) * 100}%, #ECE3CE ${((amount - selectedPlan.min_investment) / (selectedPlan.max_investment - selectedPlan.min_investment)) * 100}%)`
-              }}
-            />
-            <div className="flex justify-between text-[10px] text-[#102542]/50 font-semibold mt-2">
-              <span>Min: ${selectedPlan.min_investment}</span>
-              <span>Max: ${selectedPlan.max_investment}</span>
-            </div>
+               <span className="text-lg font-extrabold text-[#D4AF37]">
+                 UGX {numAmount ? numAmount.toLocaleString('en-UG') : '0'}
+               </span>
+             </div>
+             <input
+               type="range"
+               min={selectedPlan.min_investment}
+               max={selectedPlan.max_investment}
+               step="50"
+               value={amount || selectedPlan.min_investment}
+               onChange={e => setAmount(Number(e.target.value))}
+               className="w-full h-2 rounded-full appearance-none cursor-pointer"
+               style={{
+                 background: `linear-gradient(to right, #D4AF37 ${(((amount ? Number(amount) : selectedPlan.min_investment) - selectedPlan.min_investment) / (selectedPlan.max_investment - selectedPlan.min_investment)) * 100}%, #ECE3CE ${(((amount ? Number(amount) : selectedPlan.min_investment) - selectedPlan.min_investment) / (selectedPlan.max_investment - selectedPlan.min_investment)) * 100}%)`
+               }}
+             />
+             <div className="flex justify-between text-[10px] text-[#102542]/50 font-semibold mt-2">
+               <span>Min: UGX {selectedPlan.min_investment}</span>
+               <span>Max: UGX {selectedPlan.max_investment}</span>
+             </div>
           </div>
         </div>
 
@@ -107,7 +107,7 @@ const ProfitCalculator = ({ plans = [] }) => {
             <div>
               <p className="text-[10px] text-[#F8F4E8]/60 uppercase tracking-widest font-bold">Daily Return</p>
               <p className="text-xl font-extrabold text-white mt-0.5">
-                <span className="text-[#D4AF37] text-sm mr-0.5">$</span>{dailyReturn.toFixed(2)}
+                UGX {dailyReturn.toFixed(2)}
               </p>
             </div>
             <div>
@@ -123,7 +123,7 @@ const ProfitCalculator = ({ plans = [] }) => {
           <div className="mb-4">
             <p className="text-[10px] text-[#F8F4E8]/60 uppercase tracking-widest font-bold mb-1">Net Profit</p>
             <p className="text-2xl font-extrabold text-[#16A34A]">
-              +${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              +UGX {totalProfit.toLocaleString('en-UG', { minimumFractionDigits: 2 })}
             </p>
           </div>
 
@@ -134,7 +134,7 @@ const ProfitCalculator = ({ plans = [] }) => {
               <span className="text-[#D4AF37] font-extrabold">ROI: +{roiPercent}%</span>
             </div>
             <p className="text-3xl font-black text-white tracking-tight">
-              ${totalPayout.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              UGX {totalPayout.toLocaleString('en-UG', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>

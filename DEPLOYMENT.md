@@ -63,7 +63,7 @@ In Render Dashboard → Environment → Environment Variables:
 | `EMAIL_PASS` | (Gmail App Password — not regular password) |
 | `PAYMENT_PROVIDER_NAME` | `Marz Innovations` |
 | `PAYMENT_PROVIDER_EMAIL` | `tumukwasibwereymond@gmail.com` |
-| `PAYMENT_PROVIDER_PHONE` | `+256790193349` |
+| `PAYMENT_PROVIDER_PHONE` | `+256771178213` |
 
 ## Deploy Frontend to Vercel
 

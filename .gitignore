@@ -58,3 +58,5 @@ coverage/
 # Dev scripts (contain secrets or are one-off utilities)
 backend/check_db.js
 frontend/build_log.txt
+
+.vercel

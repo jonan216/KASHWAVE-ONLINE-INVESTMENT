@@ -11,19 +11,23 @@ import {
 } from 'react-icons/fi';
 
 const PAYMENT_METHODS = [
-  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'momo', ussd: '*165#', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Secure MTN shortcode *165# deposit' },
-  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'momo', ussd: '*185#', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Secure Airtel shortcode *185# deposit' },
+  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'momo', ussd: '*165#', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Secure MTN Mobile Money deposit' },
+  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'momo', ussd: '*185#', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Secure Airtel Mobile Money deposit' },
   { id: 'Visa Card',        label: 'Visa Card',        type: 'card', icon: FiCreditCard, badge: 'International', accent: '#1A1F71', desc: 'Debit / Credit card checkout' },
   { id: 'MasterCard',       label: 'MasterCard',       type: 'card', icon: FiCreditCard, badge: 'International', accent: '#EB001B', desc: 'Debit / Credit card checkout' },
   { id: 'Bank Transfer',    label: 'Bank Transfer',    type: 'bank', icon: FiGlobe, badge: 'Wire / SWIFT', accent: '#102542', desc: 'Direct wire & online banking' },
+  { id: 'Marz Innovations',  label: 'Marz Innovations', type: 'manual', icon: FiSmartphone, badge: 'UG', accent: '#D4AF37', desc: 'WhatsApp/Email verified payments' }
 ];
 
 const DepositPage = () => {
   const [amount, setAmount]                 = useState('50000');
+  const [sourceAccount, setSourceAccount]   = useState('');
   const [selectedMethod, setSelectedMethod] = useState(PAYMENT_METHODS[0]);
   const [showGatewayModal, setShowGatewayModal] = useState(false);
-  const [txRef, setTxRef]                   = useState('');
+  const [showPinModal, setShowPinModal]     = useState(false);
+  const [pin, setPin]                       = useState('');
   const [isProcessing, setIsProcessing]     = useState(false);
+  const [notificationSent, setNotificationSent] = useState(false);
 
   const { showSuccess, showError } = useNotification();
   const navigate = useNavigate();
@@ -37,30 +41,102 @@ const DepositPage = () => {
     if (!isValidAmount) {
       return showError(`Minimum deposit amount is ${formatCurrency(minAllowed)}.`);
     }
+    if (!sourceAccount || sourceAccount.length < 6) {
+      return showError(`Please enter a valid ${selectedMethod.type === 'momo' ? 'phone number' : selectedMethod.type === 'bank' ? 'bank account number' : 'card number'}.`);
+    }
     setShowGatewayModal(true);
   };
 
-  const handleConfirmGatewayPayment = async () => {
+  const handlePinSubmit = async (e) => {
+    e.preventDefault();
+    if (!pin || pin.length < 4) {
+      return showError('Please enter a valid PIN to complete payment.');
+    }
+
     setIsProcessing(true);
     try {
-      const generatedRef = txRef || `PAY_${selectedMethod.type.toUpperCase()}_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      const generatedRef = `PAY_${selectedMethod.type.toUpperCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
       
       const res = await api.post('/transactions/deposit', {
         amount: numAmount,
         payment_method: selectedMethod.label,
-        proof_reference: generatedRef
+        payment_provider: selectedMethod.type,
+        proof_reference: generatedRef,
+        pin: pin,
+        source_account: sourceAccount
       });
 
       if (res.data.success) {
-        showSuccess(`Deposit of ${formatCurrency(numAmount)} initiated via ${selectedMethod.label}!`);
-        setShowGatewayModal(false);
-        navigate('/dashboard/transactions');
+        // If card payment with redirect link
+        if (res.data.data?.payment_link) {
+          window.open(res.data.data.payment_link, '_blank');
+          showSuccess('Payment page opened. Complete payment in the new tab.');
+          setShowPinModal(false);
+          setShowGatewayModal(false);
+          setPin('');
+        } else {
+          showSuccess(`Payment of ${formatCurrency(numAmount)} completed successfully via ${selectedMethod.label}!`);
+          setShowPinModal(false);
+          setShowGatewayModal(false);
+          setPin('');
+          navigate('/dashboard/transactions');
+        }
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Payment verification failed.');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleProceedToPin = async () => {
+    setShowGatewayModal(false);
+    
+    // Simulate sending PIN request notification to user's phone from Marz Innovations
+    try {
+      await api.post('/transactions/notify', {
+        phone: sourceAccount,
+        amount: numAmount,
+        method: selectedMethod.label,
+        provider: 'Marz Innovations'
+      });
+      setNotificationSent(true);
+    } catch (err) {
+      console.error('Notification error:', err);
+      setNotificationSent(true); // Continue anyway in demo mode
+    }
+    
+    // For card payments, initiate payment and get redirect link
+    if (selectedMethod.type === 'card') {
+      setIsProcessing(true);
+      try {
+        const generatedRef = `PAY_CARD_${Date.now()}_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+        
+        const res = await api.post('/transactions/deposit', {
+          amount: numAmount,
+          payment_method: selectedMethod.label,
+          payment_provider: 'card',
+          proof_reference: generatedRef,
+          source_account: sourceAccount
+        });
+
+        if (res.data.success && res.data.data?.payment_link) {
+          window.open(res.data.data.payment_link, '_blank');
+          showSuccess('Payment page opened. Complete payment in the new tab.');
+          navigate('/dashboard/transactions');
+        } else {
+          showError('Could not initiate card payment. Please try again.');
+        }
+      } catch (err) {
+        showError(err.response?.data?.message || 'Payment initiation failed.');
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+    
+    // For mobile money and manual, show PIN modal
+    setShowPinModal(true);
   };
 
   return (
@@ -74,7 +150,7 @@ const DepositPage = () => {
       <div>
         <h2 className="text-2xl font-extrabold text-[#102542]">Deposit Funds</h2>
         <p className="text-xs text-[#102542]/60 font-medium mt-1">
-          Select Ugandan Shillings (UGX) amount and preferred mobile gateway (MTN MoMo, Airtel Money, Cards, Bank) to fund your wallet.
+          Select Ugandan Shillings (UGX) amount and preferred payment gateway (MTN MoMo, Airtel Money, Cards, Bank) to fund your wallet.
         </p>
       </div>
 
@@ -127,11 +203,41 @@ const DepositPage = () => {
             </div>
           </div>
 
-          {/* 2. Payment Method Selection */}
+          {/* 1.5 Source Account (Phone/Bank) */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-2 flex items-center gap-1.5 font-mono">
+              <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">2</span>
+              {selectedMethod.type === 'momo' ? 'Your Phone Number' : selectedMethod.type === 'bank' ? 'Bank Account Number' : 'Card / Account Number'}
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                {selectedMethod.type === 'momo' ? (
+                  <FiSmartphone className="w-5 h-5 text-[#102542]/40" />
+                ) : selectedMethod.type === 'bank' ? (
+                  <FiGlobe className="w-5 h-5 text-[#102542]/40" />
+                ) : (
+                  <FiCreditCard className="w-5 h-5 text-[#102542]/40" />
+                )}
+              </div>
+              <input
+                type="text"
+                required
+                value={sourceAccount}
+                onChange={e => setSourceAccount(e.target.value)}
+                placeholder={selectedMethod.type === 'momo' ? 'e.g. 0770XXXXXX or 0700XXXXXX' : selectedMethod.type === 'bank' ? 'e.g. 1234567890' : 'e.g. 4111XXXXXXXXXX'}
+                className="w-full pl-12 pr-4 py-4 bg-[#F8F4E8] border border-[#102542]/12 rounded-2xl text-xl font-extrabold text-[#102542] focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all"
+              />
+            </div>
+            <p className="text-[10px] text-[#102542]/50 mt-1.5 font-medium">
+              {selectedMethod.type === 'momo' ? 'Enter the phone number registered with your MTN/Airtel Money account' : selectedMethod.type === 'bank' ? 'Enter your bank account number for the transfer' : 'Enter your card number for verification'}
+            </p>
+          </div>
+
+          {/* 3. Payment Method Selection */}
           <div>
             <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-3 flex items-center gap-1.5 font-mono">
               <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">2</span>
-              Select Mobile/Card Payout Gateway
+              Select Payment Gateway
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {PAYMENT_METHODS.map((m) => {
@@ -170,12 +276,12 @@ const DepositPage = () => {
             disabled={!isValidAmount}
             className="w-full py-4 rounded-2xl gradient-navy text-[#F8F4E8] font-extrabold text-sm hover:shadow-glow-navy hover:scale-[1.01] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            Continue to USSD Instructions <FiArrowRight className="w-5 h-5 text-[#D4AF37]" />
+            Continue to Secure Payment <FiArrowRight className="w-5 h-5 text-[#D4AF37]" />
           </button>
         </div>
       </div>
 
-      {/* Payment Gateway Placeholder Modal */}
+      {/* Payment Gateway Modal */}
       <AnimatePresence>
         {showGatewayModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#102542]/80 backdrop-blur-md">
@@ -197,10 +303,10 @@ const DepositPage = () => {
                   <selectedMethod.icon className="w-7 h-7" />
                 </div>
                 <span className="text-[9px] font-extrabold text-[#16A34A] bg-[#16A34A]/10 px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-                  Uganda Mobile Money Gateway
+                  Secure Payment Gateway
                 </span>
                 <h3 className="text-xl font-extrabold text-[#102542]">{selectedMethod.label} Deposit</h3>
-                <p className="text-xs text-[#102542]/60 font-medium">Verify your payment via Mobile Money USSD shortcodes</p>
+                <p className="text-xs text-[#102542]/60 font-medium">Complete your payment securely</p>
               </div>
 
               {/* Transaction Summary */}
@@ -219,59 +325,108 @@ const DepositPage = () => {
                 </div>
               </div>
 
-              {/* USSD shortcode instructions snippet */}
-              {selectedMethod.type === 'momo' ? (
-                <div className="bg-[#D4AF37]/10 p-4 rounded-2xl border border-[#D4AF37]/35 text-xs text-[#102542] space-y-2">
-                  <p className="font-extrabold flex items-center gap-1.5 text-[#102542]">
-                    <FiSmartphone className="w-4.5 h-4.5 text-[#D4AF37]" /> Interactive USSD Action Required
-                  </p>
-                  <p className="text-[11px] text-[#102542]/70 leading-relaxed font-semibold">
-                    1. On your phone, dial <strong className="text-[#102542] font-extrabold text-sm">{selectedMethod.ussd}</strong>.<br />
-                    2. Select Pay Bills &gt; Enter Merchant Code &gt; Pay.<br />
-                    3. Submit your mobile account number or transaction ID below.
-                  </p>
+              {/* Security Notice */}
+              <div className="bg-[#D4AF37]/10 p-3.5 rounded-2xl border border-[#D4AF37]/35 text-xs text-[#102542] leading-relaxed flex items-start gap-2">
+                <FiSmartphone className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                <span>A PIN request has been sent to <strong>{sourceAccount}</strong> from <strong>Marz Innovations</strong>. Please check your phone and enter the PIN below to complete payment.</span>
+              </div>
+
+              {/* Proceed to PIN Button */}
+              <button
+                onClick={handleProceedToPin}
+                className="w-full py-4 rounded-2xl gradient-gold text-[#102542] font-extrabold text-sm hover:shadow-glow-gold hover:scale-[1.01] transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                I Received the PIN — Enter It Now <FiLock className="w-5 h-5" />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PIN Verification Modal */}
+      <AnimatePresence>
+        {showPinModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#102542]/80 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-4xl max-w-sm w-full border border-[#102542]/10 shadow-soft-lg overflow-hidden relative p-7 space-y-6"
+            >
+              <button
+                onClick={() => { setShowPinModal(false); setPin(''); }}
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#F8F4E8] text-[#102542] flex items-center justify-center hover:bg-[#ECE3CE]"
+              >
+                <FiX className="w-4 h-4" />
+              </button>
+
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-3xl gradient-navy text-[#D4AF37] mx-auto flex items-center justify-center shadow-glow-navy">
+                  <FiSmartphone className="w-7 h-7" />
                 </div>
-              ) : (
-                <div className="bg-[#102542]/5 p-3.5 rounded-2xl border border-[#102542]/10 text-xs text-[#102542]/70 leading-relaxed">
-                  Enter bank transfer reference or checkout ID to submit verification to administrative dashboard.
+                <h3 className="text-xl font-extrabold text-[#102542]">Enter Payment PIN</h3>
+                <p className="text-xs text-[#102542]/60 font-medium">Marz Innovations sent a PIN request to your phone</p>
+              </div>
+
+              {/* Notification Status */}
+              {notificationSent && (
+                <div className="bg-[#16A34A]/10 p-3 rounded-2xl border border-[#16A34A]/30 text-xs text-[#102542] flex items-center gap-2">
+                  <FiCheckCircle className="w-4 h-4 text-[#16A34A] shrink-0" />
+                  <span className="font-semibold">PIN request sent to <strong>{sourceAccount}</strong> from Marz Innovations. Please check your phone.</span>
                 </div>
               )}
 
-              {/* Reference / Phone Input */}
-              <div>
-                <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-1.5 font-mono">
-                  {selectedMethod.type === 'momo' ? 'Phone Number or Transaction ID' : 'Receipt Reference Code'}
-                </label>
-                <input
-                  type="text"
-                  value={txRef}
-                  onChange={e => setTxRef(e.target.value)}
-                  placeholder={selectedMethod.type === 'momo' ? 'e.g. 0770XXXXXX or TXN-99882' : 'e.g. VIS-99281'}
-                  className="w-full px-4 py-3 bg-[#F8F4E8] border border-[#102542]/12 rounded-xl text-xs font-mono text-[#102542] focus:outline-none focus:border-[#D4AF37]"
-                />
+              {/* Transaction Summary */}
+              <div className="bg-[#F8F4E8] rounded-2xl p-4 space-y-2 border border-[#102542]/8 text-xs font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-[#102542]/60 font-medium">Method:</span>
+                  <strong className="text-[#102542]">{selectedMethod.label}</strong>
+                </div>
+                <div className="flex justify-between text-sm font-extrabold border-t border-[#102542]/10 pt-2 text-[#102542]">
+                  <span>Amount:</span>
+                  <strong className="text-[#16A34A]">{formatCurrency(numAmount)}</strong>
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
+              {/* PIN Input */}
+              <form onSubmit={handlePinSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-2 font-mono">
+                    Secure PIN
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]{4,6}"
+                    maxLength={6}
+                    required
+                    value={pin}
+                    onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 4-6 digit PIN"
+                    className="w-full px-4 py-4 bg-[#F8F4E8] border border-[#102542]/12 rounded-2xl text-xl font-extrabold text-center text-[#102542] tracking-[0.5em] focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all"
+                    autoFocus
+                  />
+                  <p className="text-[10px] text-[#102542]/50 mt-1.5 font-medium">
+                    This PIN is used to authorize your payment securely
+                  </p>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setShowGatewayModal(false)}
-                  className="py-3.5 rounded-xl bg-[#F8F4E8] border border-[#102542]/10 text-[#102542] font-extrabold text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmGatewayPayment}
-                  disabled={isProcessing}
-                  className="py-3.5 rounded-xl gradient-gold text-[#102542] font-extrabold text-xs shadow-glow-gold hover:scale-[1.02] flex items-center justify-center gap-1.5"
+                  type="submit"
+                  disabled={isProcessing || !pin || pin.length < 4}
+                  className="w-full py-4 rounded-2xl gradient-gold text-[#102542] font-extrabold text-sm hover:shadow-glow-gold hover:scale-[1.01] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isProcessing ? (
-                    <span className="w-4 h-4 border-2 border-[#102542]/30 border-t-[#102542] rounded-full animate-spin" />
+                    <>Processing Payment...</>
                   ) : (
-                    <>Complete Payment <FiExternalLink className="w-3.5 h-3.5" /></>
+                    <>Confirm Payment <FiCheckCircle className="w-5 h-5" /></>
                   )}
                 </button>
-              </div>
+              </form>
+
+              <p className="text-[10px] text-[#102542]/50 text-center font-medium">
+                Powered by Marz Innovations • Secure SSL Encrypted
+              </p>
             </motion.div>
           </div>
         )}

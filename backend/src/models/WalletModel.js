@@ -12,17 +12,18 @@ class WalletModel {
 
   static async updateBalance(userId, { mainDelta = 0, investmentDelta = 0, earningsDelta = 0, depositedDelta = 0, withdrawnDelta = 0 }) {
     if (isPostgresConnected()) {
-      const query = `
-        UPDATE wallets 
-        SET main_balance = main_balance + $1,
-            investment_balance = investment_balance + $2,
-            total_earnings = total_earnings + $3,
-            total_deposited = total_deposited + $4,
-            total_withdrawn = total_withdrawn + $5,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = $6
-        RETURNING *`;
-      const res = await pool.query(query, [mainDelta, investmentDelta, earningsDelta, depositedDelta, withdrawnDelta, userId]);
+      await pool.query(
+        `UPDATE wallets 
+         SET main_balance = main_balance + $1,
+             investment_balance = investment_balance + $2,
+             total_earnings = total_earnings + $3,
+             total_deposited = total_deposited + $4,
+             total_withdrawn = total_withdrawn + $5,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $6`,
+        [mainDelta, investmentDelta, earningsDelta, depositedDelta, withdrawnDelta, userId]
+      );
+      const res = await pool.query('SELECT * FROM wallets WHERE user_id = $1', [userId]);
       return res.rows[0];
     } else {
       const wallet = mockStore.wallets.find(w => w.user_id === parseInt(userId));

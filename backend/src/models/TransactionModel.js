@@ -49,6 +49,16 @@ class TransactionModel {
     const referenceCode = `KW-${type.slice(0, 3).toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     if (isPostgresConnected()) {
+      if (pool.constructor.name === 'HttpPool') {
+        await pool.query(
+          `INSERT INTO transactions 
+           (reference_code, user_id, type, amount, fee, status, payment_method, wallet_address, proof_reference, admin_notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [referenceCode, userId, type, amount, fee, status, payment_method, wallet_address, proof_reference, admin_notes]
+        );
+        const res = await pool.query('SELECT * FROM transactions WHERE reference_code = $1 ORDER BY id DESC LIMIT 1', [referenceCode]);
+        return res.rows[0];
+      }
       const res = await pool.query(
         `INSERT INTO transactions 
          (reference_code, user_id, type, amount, fee, status, payment_method, wallet_address, proof_reference, admin_notes)
@@ -79,6 +89,14 @@ class TransactionModel {
 
   static async updateStatus(id, status, admin_notes = null) {
     if (isPostgresConnected()) {
+      if (pool.constructor.name === 'HttpPool') {
+        await pool.query(
+          "UPDATE transactions SET status = $1, admin_notes = COALESCE($2, admin_notes) WHERE id = $3",
+          [status, admin_notes, id]
+        );
+        const res = await pool.query('SELECT * FROM transactions WHERE id = $1', [id]);
+        return res.rows[0];
+      }
       const res = await pool.query(
         "UPDATE transactions SET status = $1, admin_notes = COALESCE($2, admin_notes) WHERE id = $3 RETURNING *",
         [status, admin_notes, id]

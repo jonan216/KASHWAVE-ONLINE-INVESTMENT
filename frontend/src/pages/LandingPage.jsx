@@ -98,8 +98,8 @@ const LandingPage = () => {
       title: 'Starter',
       daily_return_percent: 1.50,
       duration_days: 14,
-      min_investment: 100,
-      max_investment: 999,
+       min_investment: 100,
+      max_investment: 3100,
       risk_level: 'low',
       benefits: ['Daily Payouts', '24/7 Monitoring', 'Low Risk Index', 'Capital Returned']
     },
@@ -108,8 +108,8 @@ const LandingPage = () => {
       title: 'Silver',
       daily_return_percent: 2.20,
       duration_days: 30,
-      min_investment: 1000,
-      max_investment: 4999,
+       min_investment: 1000,
+      max_investment: 4000,
       risk_level: 'medium',
       benefits: ['Daily Payouts', 'Dedicated Manager', 'Medium Risk Index', 'Capital Returned']
     },
@@ -118,18 +118,18 @@ const LandingPage = () => {
       title: 'Gold',
       daily_return_percent: 3.50,
       duration_days: 45,
-      min_investment: 5000,
-      max_investment: 14999,
+       min_investment: 5000,
+      max_investment: 8000,
       risk_level: 'expert',
       benefits: ['High Yield Arbitrage', 'Priority 24/7 Desk', 'Premium Risk Hedging', 'Capital Returned']
     },
     {
       id: 4,
       title: 'Diamond',
-      daily_return_percent: 4.80,
+      daily_return_percent: 5,
       duration_days: 60,
-      min_investment: 15000,
-      max_investment: 100000,
+       min_investment: 15000,
+      max_investment: 18000,
       risk_level: 'expert',
       benefits: ['Institutional Liquidity Access', 'Custom SLA', 'VIP Advisory', 'Full Capital Protection']
     }
@@ -216,14 +216,14 @@ const LandingPage = () => {
           <div className="absolute -bottom-20 -left-20 w-[450px] h-[450px] bg-[#102542]/5 rounded-full blur-2xl" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="flex flex-col items-center">
             {/* Left Content */}
             <motion.div
               initial="hidden"
               animate="visible"
               variants={staggerContainer}
-              className="space-y-7 text-center lg:text-left"
+              className="space-y-7 text-center max-w-2xl"
             >
               <motion.div variants={fadeIn} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-xs font-extrabold text-[#D4AF37] uppercase tracking-wider">
                 <FiZap className="w-4 h-4" />
@@ -236,10 +236,10 @@ const LandingPage = () => {
               </motion.h1>
 
               <motion.p variants={fadeIn} className="text-base text-[#102542]/70 leading-relaxed max-w-xl mx-auto lg:mx-0 font-medium">
-                Empowering global investors with automated daily returns, institutional cold-storage security, and transparent yield management. Earn up to <strong className="text-[#102542] font-black">4.80% daily ROI</strong>.
+                Empowering global investors with automated daily returns, institutional cold-storage security, and transparent yield management. Earn up to <strong className="text-[#102542] font-black">5% daily ROI</strong>.
               </motion.p>
 
-              <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
+              <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
                 <Link
                   to="/register"
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl gradient-gold text-[#102542] font-extrabold text-sm shadow-glow-gold hover:scale-[1.03] transition-all"
@@ -255,77 +255,10 @@ const LandingPage = () => {
               </motion.div>
 
               {/* Trust Indicators */}
-              <motion.div variants={fadeIn} className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-3 text-xs text-[#102542]/70 font-semibold">
+              <motion.div variants={fadeIn} className="flex flex-wrap items-center justify-center gap-4 pt-3 text-xs text-[#102542]/70 font-semibold">
                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Zero Deposit Fees</span>
                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Daily Yield Payouts</span>
                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> 2FA Protected</span>
-              </motion.div>
-            </motion.div>
-
-            {/* Right Hero Illustration / Floating Card */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="relative"
-            >
-              <div className="bg-[#102542] rounded-4xl p-8 sm:p-9 shadow-soft-lg text-[#F8F4E8] relative overflow-hidden">
-                <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#D4AF37]/10 rounded-full" />
-                <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-[#D4AF37]/5 rounded-full" />
-
-                <div className="relative z-10 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-[#F8F4E8]/60 uppercase tracking-widest font-bold">Total Portfolio Value</p>
-                      <p className="text-3xl font-black text-white mt-1">$48,250.00</p>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl gradient-gold flex items-center justify-center shadow-glow-gold">
-                      <FiTrendingUp className="w-6 h-6 text-[#102542]" />
-                    </div>
-                  </div>
-
-                  {/* Dynamic Growth Visual Bars */}
-                  <div className="flex items-end gap-2 h-20 bg-white/5 p-3 rounded-2xl border border-white/10">
-                    {[35, 48, 42, 60, 55, 72, 68, 85, 80, 95, 92, 100].map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-md transition-all duration-500"
-                        style={{
-                          height: `${h}%`,
-                          background: i === 11 ? '#D4AF37' : `rgba(212, 175, 55, ${0.25 + i * 0.06})`
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="bg-white/10 rounded-2xl p-3.5 border border-white/10">
-                      <p className="text-[9px] text-[#F8F4E8]/60 uppercase font-bold tracking-widest">Accrued Profit</p>
-                      <p className="text-lg font-extrabold text-[#16A34A] mt-0.5">+$1,420.50</p>
-                    </div>
-                    <div className="bg-white/10 rounded-2xl p-3.5 border border-white/10">
-                      <p className="text-[9px] text-[#F8F4E8]/60 uppercase font-bold tracking-widest">Strategy Status</p>
-                      <p className="text-lg font-extrabold text-white mt-0.5 flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse" /> Active
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating Badge */}
-              <motion.div
-                animate={{ y: [0, -8, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                className="absolute -bottom-5 -left-4 bg-white rounded-2xl p-4 shadow-soft-lg border border-[#102542]/8 flex items-center gap-3"
-              >
-                <div className="w-10 h-10 rounded-xl bg-[#16A34A]/15 text-[#16A34A] flex items-center justify-center shrink-0">
-                  <FiCheckCircle className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-[#102542]/60 font-bold uppercase tracking-wider">Automated Daily Credit</p>
-                  <p className="text-xs font-black text-[#16A34A]">+$384.00 Credited</p>
-                </div>
               </motion.div>
             </motion.div>
           </div>
@@ -492,11 +425,11 @@ const LandingPage = () => {
                     <div className="space-y-2 text-xs font-semibold text-[#102542]/80">
                       <div className="flex justify-between border-b border-[#102542]/6 pb-2">
                         <span className="text-[#102542]/60">Minimum Investment:</span>
-                        <strong className="text-[#102542]">${plan.min_investment}</strong>
+                        <strong className="text-[#102542]">UGX {plan.min_investment.toLocaleString()}</strong>
                       </div>
                       <div className="flex justify-between border-b border-[#102542]/6 pb-2">
                         <span className="text-[#102542]/60">Maximum Investment:</span>
-                        <strong className="text-[#102542]">${plan.max_investment?.toLocaleString()}</strong>
+                        <strong className="text-[#102542]">UGX {plan.max_investment?.toLocaleString()}</strong>
                       </div>
                       <div className="flex justify-between border-b border-[#102542]/6 pb-2">
                         <span className="text-[#102542]/60">Contract Duration:</span>

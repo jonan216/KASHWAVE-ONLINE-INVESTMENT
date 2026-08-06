@@ -9,11 +9,23 @@ const { pool, mockStore, isPostgresConnected } = require('../config/db');
 const { writeAuditLog } = require('../middleware/auditLogger');
 
 // Secure upload directory — NOT in public/static folder
-const KYC_UPLOAD_DIR = path.resolve(__dirname, '../../secure_uploads/kyc');
+// In serverless environments (Vercel), /tmp is the only writable path
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const KYC_UPLOAD_DIR = isServerless
+  ? '/tmp/kashwave_uploads/kyc'
+  : path.resolve(__dirname, '../../secure_uploads/kyc');
 
-// Ensure upload directory exists
-if (!fs.existsSync(KYC_UPLOAD_DIR)) {
-  fs.mkdirSync(KYC_UPLOAD_DIR, { recursive: true });
+// Ensure upload directory exists (called lazily, not at module load)
+function ensureUploadDir() {
+  if (!fs.existsSync(KYC_UPLOAD_DIR)) {
+    try {
+      fs.mkdirSync(KYC_UPLOAD_DIR, { recursive: true });
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.error('[KYC] Could not create upload directory:', err.message);
+      }
+    }
+  }
 }
 
 /**

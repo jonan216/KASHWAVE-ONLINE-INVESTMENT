@@ -13,6 +13,7 @@ const env = require('../config/env');
 const providers = {
   mtn_momo:     require('./providers/mtnMomoProvider'),
   airtel_money: require('./providers/airtelMoneyProvider'),
+  card:         require('./providers/cardProvider'),
   manual:       require('./providers/manualProvider'),
 };
 
@@ -21,7 +22,7 @@ const generateReference = (prefix = 'KW-PAY') =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 // ─── Create Payment Request ─────────────────────────────────────────────────
-const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider = 'manual', direction = 'inbound' }) => {
+const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider = 'manual', direction = 'inbound', phone }) => {
   const internalRef = generateReference('KW-DEP');
   const providerRef = `EXT-${Date.now()}`;
   const providerInstance = providers[provider];
@@ -31,10 +32,23 @@ const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider
   }
 
   const providerResult = await providerInstance.initPayment({
-    amount, currency, reference: internalRef, phone: null
+    amount, currency, reference: internalRef, phone: phone || null
   });
 
   if (isPostgresConnected() && pool) {
+    if (pool.constructor.name === 'HttpPool') {
+      await pool.query(
+        `INSERT INTO payment_transactions
+           (user_id, provider, reference_number, internal_reference, amount, currency, direction, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending')`,
+        [userId, provider, providerRef, internalRef, amount, currency, direction]
+      );
+      const result = await pool.query(
+        `SELECT * FROM payment_transactions WHERE internal_reference = $1 ORDER BY id DESC LIMIT 1`,
+        [internalRef]
+      );
+      return { ...result.rows[0], providerResponse: providerResult };
+    }
     const result = await pool.query(
       `INSERT INTO payment_transactions
          (user_id, provider, reference_number, internal_reference, amount, currency, direction, status)
@@ -42,7 +56,7 @@ const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider
        RETURNING *`,
       [userId, provider, providerRef, internalRef, amount, currency, direction]
     );
-       return { ...result.rows[0], providerResponse: providerResult };
+    return { ...result.rows[0], providerResponse: providerResult };
   }
 
   const record = {
