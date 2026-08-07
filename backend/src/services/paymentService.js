@@ -79,7 +79,6 @@ const verifyWebhookSignature = (providerName, payload, signature, secret) => {
     .createHmac('sha256', secret)
     .update(typeof payload === 'string' ? payload : JSON.stringify(payload))
     .digest('hex');
-  // Constant-time compare to prevent timing attacks
   try {
     return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(signature));
   } catch {
@@ -132,21 +131,18 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
       if (tx.wallet_credited) throw new Error('DUPLICATE_WEBHOOK_ATTEMPT');
 
       if (status === 'success' || status === 'completed' || status === 'successful') {
-        // Credit wallet — the single source of truth
         await client.query(
           `UPDATE wallets SET main_balance = main_balance + $1, total_deposited = total_deposited + $1
            WHERE user_id = $2`,
           [tx.amount, tx.user_id]
         );
 
-        // Record canonical transaction
         await client.query(
-          `INSERT INTO transactions (reference_code, user_id, type, amount, currency, status, payment_method)
-           VALUES ($1,$2,'deposit',$3,$4,'completed',$5)`,
-          [tx.internal_reference, tx.user_id, tx.amount, tx.currency, tx.provider]
+          `UPDATE transactions SET status='completed', payment_method=$1, admin_notes=COALESCE($2, admin_notes)
+           WHERE proof_reference=$3`,
+          [tx.provider, `Confirmed via ${providerName} webhook`, tx.internal_reference]
         );
 
-        // Mark payment as credited
         await client.query(
           `UPDATE payment_transactions SET status='credited', wallet_credited=TRUE,
            signature_verified=TRUE, webhook_payload=$1 WHERE id=$2`,

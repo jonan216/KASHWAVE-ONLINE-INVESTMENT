@@ -25,6 +25,33 @@ class TransactionController {
         return res.status(400).json({ success: false, message: 'Payment provider is required.' });
       }
 
+      let paymentResult = null;
+      let wallet = null;
+      let internalRef = proof_reference;
+
+      // For webhook-based providers, create payment request first so internal_reference can be linked
+      if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
+        const payment = await createPaymentRequest({
+          userId: req.user.id,
+          amount: numAmount,
+          provider: 'marz_innovations',
+          currency: 'UGX',
+          phone: source_account
+        });
+        paymentResult = payment.providerResponse;
+        internalRef = payment.internal_reference;
+      } else if (payment_provider === 'card') {
+        const payment = await createPaymentRequest({
+          userId: req.user.id,
+          amount: numAmount,
+          provider: 'card',
+          currency: 'UGX',
+          phone: source_account
+        });
+        paymentResult = payment.providerResponse;
+        internalRef = payment.internal_reference;
+      }
+
       const tx = await TransactionModel.create({
         userId: req.user.id,
         type: 'deposit',
@@ -32,26 +59,13 @@ class TransactionController {
         fee: 0.00,
         status: 'pending',
         payment_method: payment_method || 'Marz Innovations',
-        proof_reference: proof_reference || `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
+        proof_reference: internalRef,
         admin_notes: `Deposit via ${payment_provider} from ${source_account || 'unknown'}`
       });
-
-      let paymentResult = null;
-      let wallet = null;
 
       // Marz Innovations / Mobile Money
       if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
         try {
-          const payment = await createPaymentRequest({
-            userId: req.user.id,
-            amount: numAmount,
-            provider: 'marz_innovations',
-            currency: 'UGX',
-            phone: source_account
-          });
-
-          paymentResult = payment.providerResponse;
-
           const smsMessage = `You are depositing UGX ${numAmount.toLocaleString()} to Marz Innovations (${source_account}). Enter your Mobile Money PIN to confirm payment.`;
           const smsResult = await sendSMS({ to: source_account, message: smsMessage });
           console.log(`[SMS] Deposit notification sent to ${source_account}: ${smsResult.success ? 'SUCCESS' : 'FAILED'} via ${smsResult.provider || 'none'}`);
@@ -91,22 +105,13 @@ class TransactionController {
             return res.status(201).json({
               success: true,
               message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || 'Marz Innovations'} (Demo Mode)!`,
-              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
+              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
             });
           }
 
           return res.status(400).json({ success: false, message: `Payment initiation failed: ${err.message}` });
         }
       } else if (payment_provider === 'card') {
-        const payment = await createPaymentRequest({
-          userId: req.user.id,
-          amount: numAmount,
-          provider: 'card',
-          currency: 'UGX',
-          phone: source_account
-        });
-
-        paymentResult = payment.providerResponse;
         const isDemoMode = !process.env.FLUTTERWAVE_SECRET_KEY;
 
         if (isDemoMode) {
@@ -119,7 +124,7 @@ class TransactionController {
           return res.status(201).json({
             success: true,
             message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully (Demo Mode)!`,
-            data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
+            data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
           });
         }
 
