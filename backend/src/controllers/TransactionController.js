@@ -13,7 +13,7 @@ class TransactionController {
 
   static async createDeposit(req, res, next) {
     try {
-      const { amount, payment_method, proof_reference, payment_provider, pin, source_account } = req.body;
+      const { amount, payment_method, proof_reference, payment_provider, source_account } = req.body;
       const numAmount = parseFloat(amount);
 
       if (numAmount < 10) {
@@ -25,10 +25,8 @@ class TransactionController {
       }
 
       let paymentResult = null;
-      let wallet = null;
       let internalRef = proof_reference;
 
-      // For webhook-based providers, create payment request first so internal_reference can be linked
       if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
         const payment = await createPaymentRequest({
           userId: req.user.id,
@@ -62,56 +60,21 @@ class TransactionController {
         admin_notes: `Deposit via ${payment_provider} from ${source_account || 'unknown'}`
       });
 
-      // Marz Innovations / Mobile Money
       if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
-        try {
-          const isDemoMode = !process.env.MARZ_INNOVATIONS_API_KEY || !process.env.MARZ_INNOVATIONS_API_SECRET;
+        res.status(201).json({
+          success: true,
+          message: 'Payment request initiated. Please check your phone for PIN prompt.',
+          data: { transaction: tx, paymentResult, requiresPin: true }
+        });
+        return;
+      }
 
-          if (isDemoMode && pin) {
-            await TransactionModel.updateStatus(tx.id, 'completed');
-            wallet = await WalletModel.updateBalance(req.user.id, {
-              depositedDelta: numAmount,
-              mainDelta: numAmount
-            });
-
-            return res.status(201).json({
-              success: true,
-              message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || 'Marz Innovations'} (Demo Mode)!`,
-              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
-            });
-          }
-
-          res.status(201).json({
-            success: true,
-            message: 'Payment request initiated. Please check your phone for PIN prompt.',
-            data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode }
-          });
-          return;
-        } catch (err) {
-          const isDemoMode = !process.env.MARZ_INNOVATIONS_API_KEY || !process.env.MARZ_INNOVATIONS_API_SECRET;
-
-          if (isDemoMode && pin) {
-            await TransactionModel.updateStatus(tx.id, 'completed');
-            wallet = await WalletModel.updateBalance(req.user.id, {
-              depositedDelta: numAmount,
-              mainDelta: numAmount
-            });
-
-            return res.status(201).json({
-              success: true,
-              message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || 'Marz Innovations'} (Demo Mode)!`,
-              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
-            });
-          }
-
-          return res.status(400).json({ success: false, message: `Payment initiation failed: ${err.message}` });
-        }
-      } else if (payment_provider === 'card') {
+      if (payment_provider === 'card') {
         const isDemoMode = !process.env.FLUTTERWAVE_SECRET_KEY;
 
         if (isDemoMode) {
           await TransactionModel.updateStatus(tx.id, 'completed');
-          wallet = await WalletModel.updateBalance(req.user.id, {
+          const wallet = await WalletModel.updateBalance(req.user.id, {
             depositedDelta: numAmount,
             mainDelta: numAmount
           });
@@ -129,23 +92,9 @@ class TransactionController {
           data: { transaction: tx, paymentResult, requiresRedirect: true, payment_link: paymentResult?.payment_link }
         });
         return;
-      } else {
-        if (!pin || pin.length < 4) {
-          return res.status(400).json({ success: false, message: 'Payment PIN is required.' });
-        }
-
-        await TransactionModel.updateStatus(tx.id, 'completed');
-        wallet = await WalletModel.updateBalance(req.user.id, {
-          depositedDelta: numAmount,
-          mainDelta: numAmount
-        });
-
-        res.status(201).json({
-          success: true,
-          message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully!`,
-          data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true }
-        });
       }
+
+      return res.status(400).json({ success: false, message: 'Unsupported payment provider.' });
     } catch (err) { next(err); }
   }
 

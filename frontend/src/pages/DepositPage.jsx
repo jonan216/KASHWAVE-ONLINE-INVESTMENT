@@ -53,13 +53,8 @@ const DepositPage = () => {
       });
 
       if (res.data.success) {
-        if (res.data.data?.requiresPin) {
-          showSuccess(`Payment request sent to ${sourceAccount}. Enter your PIN on your phone to confirm.`);
-          await pollPaymentStatus(res.data.data.transaction?.id, res.data.data.transaction?.reference_code);
-        } else {
-          showSuccess(`Deposit of ${formatCurrency(numAmount)} completed successfully via ${selectedMethod.label}!`);
-          navigate('/dashboard/transactions');
-        }
+        showSuccess(`Payment request sent to ${sourceAccount}. Please confirm on your phone.`);
+        await pollPaymentStatus(res.data.data.transaction?.id, res.data.data.transaction?.reference_code);
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Deposit failed. Please try again.');
@@ -69,7 +64,7 @@ const DepositPage = () => {
   };
 
   const pollPaymentStatus = async (txId, referenceCode) => {
-    const maxAttempts = 60;
+    const maxAttempts = 120;
     const intervalMs = 3000;
     for (let i = 0; i < maxAttempts; i++) {
       try {
@@ -233,7 +228,7 @@ const DepositPage = () => {
               {isProcessing ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Waiting for PIN confirmation...
+                  Waiting for confirmation...
                 </span>
               ) : (
                 <>Deposit Now <FiArrowDownLeft className="w-5 h-5 text-[#D4AF37]" /></>
