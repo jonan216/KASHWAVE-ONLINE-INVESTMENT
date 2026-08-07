@@ -11,12 +11,12 @@ import {
 } from 'react-icons/fi';
 
 const PAYMENT_METHODS = [
-  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'marz_innovations', method: 'mtn', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Deposit via Marz Innovations - MTN' },
-  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'marz_innovations', method: 'airtel', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Deposit via Marz Innovations - Airtel' },
-  { id: 'M-Pesa',          label: 'M-Pesa',           type: 'marz_innovations', method: 'mpesa', icon: FiSmartphone, badge: 'Kenya', accent: '#4CAF50', desc: 'Deposit via Marz Innovations - M-Pesa' },
-  { id: 'Visa Card',        label: 'Visa Card',        type: 'card', icon: FiCreditCard, badge: 'International', accent: '#1A1F71', desc: 'Debit / Credit card checkout' },
-  { id: 'MasterCard',       label: 'MasterCard',       type: 'card', icon: FiCreditCard, badge: 'International', accent: '#EB001B', desc: 'Debit / Credit card checkout' },
-  { id: 'Bank Transfer',    label: 'Bank Transfer',    type: 'bank', icon: FiGlobe, badge: 'Wire / SWIFT', accent: '#102542', desc: 'Direct wire & online banking' }
+  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'mobile', method: 'mtn', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Deposit via Marz Innovations - MTN', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 0770XXXXXX or 0700XXXXXX', inputType: 'tel' },
+  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'mobile', method: 'airtel', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Deposit via Marz Innovations - Airtel', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 0770XXXXXX or 0700XXXXXX', inputType: 'tel' },
+  { id: 'M-Pesa',          label: 'M-Pesa',           type: 'mobile', method: 'mpesa', icon: FiSmartphone, badge: 'Kenya', accent: '#4CAF50', desc: 'Deposit via Marz Innovations - M-Pesa', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 07XXXXXXXX', inputType: 'tel' },
+  { id: 'Visa Card',        label: 'Visa Card',        type: 'card', icon: FiCreditCard, badge: 'International', accent: '#1A1F71', desc: 'Debit / Credit card checkout', inputLabel: 'Card Number', inputPlaceholder: 'e.g. 4111XXXXXXXXXX', inputType: 'text' },
+  { id: 'MasterCard',       label: 'MasterCard',       type: 'card', icon: FiCreditCard, badge: 'International', accent: '#EB001B', desc: 'Debit / Credit card checkout', inputLabel: 'Card Number', inputPlaceholder: 'e.g. 5555XXXXXXXXXX', inputType: 'text' },
+  { id: 'Bank Transfer',    label: 'Bank Transfer',    type: 'bank', icon: FiGlobe, badge: 'Wire / SWIFT', accent: '#102542', desc: 'Direct wire & online banking', inputLabel: 'Bank Account Number', inputPlaceholder: 'e.g. 1234567890', inputType: 'text' }
 ];
 
 const DepositPage = () => {
@@ -203,15 +203,52 @@ const DepositPage = () => {
             </div>
           </div>
 
-          {/* 1.5 Source Account (Phone/Bank) */}
+          {/* 2. Payment Method Selection */}
+          <div>
+            <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-3 flex items-center gap-1.5 font-mono">
+              <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">2</span>
+              Select Payment Gateway
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PAYMENT_METHODS.map((m) => {
+                const Icon = m.icon;
+                const isSelected = selectedMethod.id === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setSelectedMethod(m)}
+                    className={`p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden ${
+                      isSelected
+                        ? 'bg-[#102542] border-[#102542] shadow-glow-navy scale-[1.02]'
+                        : 'bg-[#F8F4E8] border-[#102542]/10 hover:border-[#102542]/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isSelected ? 'bg-white/10 text-[#D4AF37]' : 'bg-[#102542]/10 text-[#102542]'}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span className={`text-[8px] font-extrabold px-2 py-0.5 rounded-full ${isSelected ? 'bg-[#D4AF37] text-[#102542]' : 'bg-[#102542]/8 text-[#102542]/60'}`}>
+                        {m.badge}
+                      </span>
+                    </div>
+                    <p className={`text-xs font-extrabold ${isSelected ? 'text-white' : 'text-[#102542]'}`}>{m.label}</p>
+                    <p className={`text-[10px] font-medium mt-0.5 ${isSelected ? 'text-white/60' : 'text-[#102542]/50'}`}>{m.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. Source Account (Phone / Card / Bank) */}
           <div>
             <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-2 flex items-center gap-1.5 font-mono">
-              <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">2</span>
-              {selectedMethod.type === 'momo' ? 'Your Phone Number' : selectedMethod.type === 'bank' ? 'Bank Account Number' : 'Card / Account Number'}
+              <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">3</span>
+              {selectedMethod.inputLabel}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                {selectedMethod.type === 'momo' ? (
+                {selectedMethod.type === 'mobile' ? (
                   <FiSmartphone className="w-5 h-5 text-[#102542]/40" />
                 ) : selectedMethod.type === 'bank' ? (
                   <FiGlobe className="w-5 h-5 text-[#102542]/40" />
@@ -220,20 +257,18 @@ const DepositPage = () => {
                 )}
               </div>
               <input
-                type="text"
+                type={selectedMethod.inputType}
                 required
                 value={sourceAccount}
                 onChange={e => setSourceAccount(e.target.value)}
-                placeholder={selectedMethod.type === 'momo' ? 'e.g. 0770XXXXXX or 0700XXXXXX' : selectedMethod.type === 'bank' ? 'e.g. 1234567890' : 'e.g. 4111XXXXXXXXXX'}
+                placeholder={selectedMethod.inputPlaceholder}
                 className="w-full pl-12 pr-4 py-4 bg-[#F8F4E8] border border-[#102542]/12 rounded-2xl text-xl font-extrabold text-[#102542] focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all"
               />
             </div>
             <p className="text-[10px] text-[#102542]/50 mt-1.5 font-medium">
-              {selectedMethod.type === 'momo' ? 'Enter the phone number registered with your MTN/Airtel Money account' : selectedMethod.type === 'bank' ? 'Enter your bank account number for the transfer' : 'Enter your card number for verification'}
+              {selectedMethod.type === 'mobile' ? 'Enter the phone number registered with your mobile money account' : selectedMethod.type === 'bank' ? 'Enter your bank account number for the transfer' : 'Enter your card number for verification'}
             </p>
           </div>
-
-          {/* 3. Payment Method Selection */}
           <div>
             <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-3 flex items-center gap-1.5 font-mono">
               <span className="w-5 h-5 rounded-full bg-[#102542] text-[#D4AF37] flex items-center justify-center text-[10px]">2</span>
@@ -328,7 +363,7 @@ const DepositPage = () => {
               {/* Security Notice */}
               <div className="bg-[#D4AF37]/10 p-3.5 rounded-2xl border border-[#D4AF37]/35 text-xs text-[#102542] leading-relaxed flex items-start gap-2">
                 <FiSmartphone className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
-                <span>You are depositing <strong>{formatCurrency(numAmount)}</strong> to <strong>Marz Innovations</strong> ({sourceAccount}). Enter your Mobile Money PIN to confirm payment.</span>
+                <span>SMS sent to <strong>{sourceAccount}</strong> with PIN request from <strong>Marz Innovations</strong>. Please check your phone and enter the PIN below to complete payment.</span>
               </div>
 
               {/* Proceed to PIN Button */}

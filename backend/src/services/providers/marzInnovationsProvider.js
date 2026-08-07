@@ -7,7 +7,7 @@
 const https = require('https');
 const env = require('../../config/env');
 
-const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/api/v1';
+const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/API/v1';
 const MARZ_API_KEY = env.MARZ_INNOVATIONS_API_KEY;
 const MARZ_API_SECRET = env.MARZ_INNOVATIONS_API_SECRET;
 

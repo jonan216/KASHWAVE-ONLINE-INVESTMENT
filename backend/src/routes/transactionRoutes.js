@@ -4,20 +4,25 @@ const TransactionController = require('../controllers/TransactionController');
 const authenticateToken = require('../middleware/authMiddleware');
 const validate = require('../middleware/validateMiddleware');
 const env = require('../config/env');
+const { sendSMS } = require('../services/smsService');
 
 const router = express.Router();
 
 router.use(authenticateToken);
 
-router.post('/notify', (req, res) => {
+router.post('/notify', async (req, res) => {
   const { phone, amount, method, provider } = req.body;
   const marzPhone = env.PAYMENT_PROVIDER_PHONE || '+256771178213';
   const marzName = env.PAYMENT_PROVIDER_NAME || 'Marz Innovations';
-  console.log(`[PAYMENT NOTIFICATION] Deposit request to ${marzName} (${marzPhone}) for ${amount} UGX from ${phone} via ${method}`);
+  const message = `You are depositing UGX ${amount} to ${marzName} (${marzPhone}). Enter your ${method.includes('Airtel') ? 'Airtel Money' : 'Mobile Money'} PIN to confirm payment.`;
+  
+  const smsResult = await sendSMS({ to: phone, message });
+  console.log(`[SMS] Notification to ${phone}: ${smsResult.success ? 'SUCCESS' : 'FAILED'} via ${smsResult.provider || 'none'}`);
+  
   res.json({
     success: true,
-    message: `You are depositing UGX ${amount} to ${marzName} (${marzPhone}). Enter your ${method.includes('Airtel') ? 'Airtel Money' : 'Mobile Money'} PIN to confirm payment.`,
-    data: { phone, amount, method, provider: provider || 'Marz Innovations', recipient: marzPhone, status: 'sent' }
+    message: `SMS sent to ${phone} via ${smsResult.provider || 'none'}`,
+    data: { phone, amount, method, provider: provider || 'Marz Innovations', recipient: marzPhone, status: 'sent', smsResult }
   });
 });
 

@@ -1,6 +1,7 @@
 const TransactionModel = require('../models/TransactionModel');
 const WalletModel = require('../models/WalletModel');
 const { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook } = require('../services/paymentService');
+const { sendSMS } = require('../services/smsService');
 const env = require('../config/env');
 
 class TransactionController {
@@ -51,6 +52,10 @@ class TransactionController {
             method: method
           });
 
+          const smsMessage = `You are depositing UGX ${numAmount.toLocaleString()} to Marz Innovations (${source_account}). Enter your Mobile Money PIN to confirm payment.`;
+          const smsResult = await sendSMS({ to: source_account, message: smsMessage });
+          console.log(`[SMS] Deposit notification sent to ${source_account}: ${smsResult.success ? 'SUCCESS' : 'FAILED'} via ${smsResult.provider || 'none'}`);
+
           const isDemoMode = !process.env.MARZ_INNOVATIONS_API_KEY || !process.env.MARZ_INNOVATIONS_API_SECRET;
 
           if (isDemoMode && pin) {
@@ -69,7 +74,7 @@ class TransactionController {
 
           res.status(201).json({
             success: true,
-            message: 'Payment request initiated. Please check your phone for PIN prompt.',
+            message: `You are depositing UGX ${numAmount.toLocaleString()} to Marz Innovations (${source_account}). Enter your Mobile Money PIN to confirm payment.`,
             data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode }
           });
           return;
