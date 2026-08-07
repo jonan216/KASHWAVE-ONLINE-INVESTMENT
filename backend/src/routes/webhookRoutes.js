@@ -62,14 +62,28 @@ router.post('/flutterwave', async (req, res) => {
   }
 });
 
-// POST /api/webhooks/marz — Marz Innovations deposit callback
+// POST /api/webhooks/marz — MarzPay collection callback
 router.post('/marz', async (req, res) => {
   try {
     const signature = req.headers['x-marz-signature'] || req.headers['authorization'];
-    await processVerifiedWebhook({ providerName: 'marz_innovations', rawPayload: req.body, signature, req });
+    const rawPayload = req.body;
+    const payload = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+
+    const normalizedPayload = {
+      reference: payload.transaction?.reference || payload.reference,
+      transaction_id: payload.transaction?.uuid || payload.transaction?.id,
+      amount: payload.collection?.amount?.raw || payload.amount,
+      status: payload.transaction?.status || payload.status,
+      provider: payload.collection?.provider || payload.provider,
+      phone_number: payload.transaction?.phone_number || payload.phone_number,
+      event_type: payload.event_type,
+      raw: payload
+    };
+
+    await processVerifiedWebhook({ providerName: 'marz_innovations', rawPayload: normalizedPayload, signature, req });
     res.status(200).json({ status: 'received' });
   } catch (err) {
-    await writeAuditLog({ action: 'webhook_error', description: `Marz Innovations webhook error: ${err.message}`, severity: 'critical', ipAddress: req.ip });
+    await writeAuditLog({ action: 'webhook_error', description: `MarzPay webhook error: ${err.message}`, severity: 'critical', ipAddress: req.ip });
     if (err.message === 'INVALID_WEBHOOK_SIGNATURE') return res.status(401).json({ error: 'Invalid signature' });
     res.status(500).json({ error: 'Internal error' });
   }
