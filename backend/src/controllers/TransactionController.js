@@ -42,15 +42,15 @@ class TransactionController {
       // Marz Innovations / Mobile Money
       if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
         try {
-          const { initiateDeposit } = require('../services/providers/marzInnovationsProvider');
-          const method = payment_method?.toLowerCase().includes('airtel') ? 'airtel' :
-                         payment_method?.toLowerCase().includes('mpesa') ? 'mpesa' : 'mtn';
-
-          paymentResult = await initiateDeposit({
+          const payment = await createPaymentRequest({
+            userId: req.user.id,
             amount: numAmount,
-            phone: source_account,
-            method: method
+            provider: 'marz_innovations',
+            currency: 'UGX',
+            phone: source_account
           });
+
+          paymentResult = payment.providerResponse;
 
           const smsMessage = `You are depositing UGX ${numAmount.toLocaleString()} to Marz Innovations (${source_account}). Enter your Mobile Money PIN to confirm payment.`;
           const smsResult = await sendSMS({ to: source_account, message: smsMessage });

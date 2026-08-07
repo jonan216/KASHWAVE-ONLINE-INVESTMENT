@@ -62,4 +62,17 @@ router.post('/flutterwave', async (req, res) => {
   }
 });
 
+// POST /api/webhooks/marz — Marz Innovations deposit callback
+router.post('/marz', async (req, res) => {
+  try {
+    const signature = req.headers['x-marz-signature'] || req.headers['authorization'];
+    await processVerifiedWebhook({ providerName: 'marz_innovations', rawPayload: req.body, signature, req });
+    res.status(200).json({ status: 'received' });
+  } catch (err) {
+    await writeAuditLog({ action: 'webhook_error', description: `Marz Innovations webhook error: ${err.message}`, severity: 'critical', ipAddress: req.ip });
+    if (err.message === 'INVALID_WEBHOOK_SIGNATURE') return res.status(401).json({ error: 'Invalid signature' });
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
 module.exports = router;

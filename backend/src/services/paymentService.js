@@ -115,12 +115,19 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
     try {
       await client.query('BEGIN');
 
-      // Find pending payment record
-      const txResult = await client.query(
+      // Find pending payment record by reference_number or internal_reference
+      let txResult = await client.query(
         `SELECT * FROM payment_transactions WHERE reference_number = $1 FOR UPDATE`,
         [providerRef]
       );
-      const tx = txResult.rows[0];
+      let tx = txResult.rows[0];
+      if (!tx) {
+        txResult = await client.query(
+          `SELECT * FROM payment_transactions WHERE internal_reference = $1 FOR UPDATE`,
+          [providerRef]
+        );
+        tx = txResult.rows[0];
+      }
       if (!tx) throw new Error('PAYMENT_RECORD_NOT_FOUND');
       if (tx.wallet_credited) throw new Error('DUPLICATE_WEBHOOK_ATTEMPT');
 

@@ -46,9 +46,10 @@ async function sendSMS({ to, message }) {
 }
 
 async function sendViaAfricaTalking(to, message) {
+  const cleanedPhone = (to || '').replace(/[^0-9]/g, '');
   const formData = new URLSearchParams({
     username: AT_USERNAME,
-    to: formatPhoneNumber(to),
+    to: cleanedPhone,
     message: `${DEFAULT_FROM}: ${message}`
   });
 
@@ -73,11 +74,12 @@ async function sendViaAfricaTalking(to, message) {
           const parsed = JSON.parse(data);
           if (parsed.SMSMessageData && parsed.SMSMessageData.Recipients) {
             const status = parsed.SMSMessageData.Recipients[0]?.status || 'Unknown';
-            resolve({ success: status === 'Success', provider: 'africa_talking', status, raw: parsed });
+            const success = status === 'Success' || status === 'Sent';
+            resolve({ success, provider: 'africa_talking', status, raw: parsed });
           } else if (parsed.SMSMessageData && parsed.SMSMessageData.message === 'Sent') {
             resolve({ success: true, provider: 'africa_talking', status: 'Sent', raw: parsed });
           } else {
-            resolve({ success: false, provider: 'africa_talking', status: parsed.status, raw: parsed, error: parsed.SMSMessageData?.message || parsed.errorMessage || 'Unknown response' });
+            resolve({ success: false, provider: 'africa_talking', status: parsed.status, raw: parsed, error: parsed.SMSMessageData?.message || parsed.errorMessage || parsed.message || 'Unknown response' });
           }
         } catch (e) {
           resolve({ success: false, provider: 'africa_talking', error: 'Invalid JSON response', raw: data });
@@ -135,10 +137,10 @@ async function sendViaTwilio(to, message) {
 
 function formatPhoneNumber(phone) {
   if (!phone) return phone;
-  const cleaned = phone.replace(/[^0-9+]/g, '');
-  if (cleaned.startsWith('+')) return cleaned;
-  if (cleaned.startsWith('0')) return `+256${cleaned.substring(1)}`;
-  return `+${cleaned}`;
+  const cleaned = phone.replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('256')) return cleaned;
+  if (cleaned.startsWith('0')) return `256${cleaned.substring(1)}`;
+  return cleaned;
 }
 
 module.exports = { sendSMS, sendViaAfricaTalking, sendViaTwilio };

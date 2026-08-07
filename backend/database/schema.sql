@@ -206,6 +206,40 @@ CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id ON referrals(referrer_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 
 -- ==============================================================================
+-- TABLE: payment_transactions
+-- Secure webhook-verified payment event ledger
+-- Never trust frontend — only webhook-confirmed entries update wallet
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL DEFAULT 'manual'
+        CHECK (provider IN ('mtn_momo', 'airtel_money', 'visa', 'mastercard', 'bank_transfer', 'manual', 'marz_innovations')),
+    reference_number VARCHAR(255) UNIQUE NOT NULL,
+    internal_reference VARCHAR(60) UNIQUE NOT NULL,
+    amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),
+    currency VARCHAR(10) NOT NULL DEFAULT 'UGX' CHECK (currency IN ('UGX', 'USD')),
+    direction VARCHAR(10) NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'webhook_received', 'verified', 'credited', 'failed', 'rejected')),
+    webhook_payload JSONB DEFAULT NULL,
+    webhook_signature VARCHAR(500) DEFAULT NULL,
+    signature_verified BOOLEAN DEFAULT FALSE,
+    wallet_credited BOOLEAN DEFAULT FALSE,
+    failure_reason TEXT DEFAULT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_tx_user ON payment_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_tx_status ON payment_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_payment_tx_ref ON payment_transactions(reference_number);
+
+CREATE TRIGGER trg_update_payment_tx_timestamp
+BEFORE UPDATE ON payment_transactions
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ==============================================================================
 -- SEED DATA: Investment Plans
 -- ==============================================================================
 INSERT INTO investment_plans (title, description, daily_return_percent, duration_days, min_investment, max_investment, bonus_amount, salary_bonus, risk_level, status, currency)

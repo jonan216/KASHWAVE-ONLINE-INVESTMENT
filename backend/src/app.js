@@ -80,19 +80,6 @@ app.get('/api/health', (req, res) => {
 app.get('/api/dbtest', async (req, res) => {
   try {
     const { pool, isPostgresConnected } = require('./config/db');
-    if (!pool) return res.json({ connected: false, reason: 'no_pool', env: process.env.PGHOST });
-    const client = await pool.connect();
-    const r = await client.query('SELECT NOW()');
-    client.release();
-    res.json({ connected: true, time: r.rows[0].now, isPostgresConnected });
-  } catch (e) {
-    res.json({ connected: false, error: e.message, code: e.code, host: process.env.PGHOST });
-  }
-});
-
-app.get('/api/dbtest', async (req, res) => {
-  try {
-    const { pool, isPostgresConnected } = require('./config/db');
     if (!pool) return res.json({ connected: false, reason: 'no_pool' });
     const client = await pool.connect();
     const r = await client.query('SELECT NOW()');
