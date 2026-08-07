@@ -74,8 +74,8 @@ class TransactionController {
 
           res.status(201).json({
             success: true,
-            message: `You are depositing UGX ${numAmount.toLocaleString()} to Marz Innovations (${source_account}). Enter your Mobile Money PIN to confirm payment.`,
-            data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode }
+            message: 'Payment request initiated. Please check your phone for PIN prompt.',
+            data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode, smsSent: smsResult.success }
           });
           return;
         } catch (err) {

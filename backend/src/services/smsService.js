@@ -46,11 +46,13 @@ async function sendSMS({ to, message }) {
 }
 
 async function sendViaAfricaTalking(to, message) {
-  const payload = JSON.stringify({
+  const formData = new URLSearchParams({
     username: AT_USERNAME,
     to: formatPhoneNumber(to),
     message: `${DEFAULT_FROM}: ${message}`
   });
+
+  const auth = Buffer.from(`${AT_USERNAME}:${AT_API_KEY}`).toString('base64');
 
   return new Promise((resolve, reject) => {
     const req = https.request({
@@ -58,9 +60,10 @@ async function sendViaAfricaTalking(to, message) {
       path: '/version1/messaging',
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-        'Accept': 'application/json'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(formData.toString()),
+        'Accept': 'application/json',
+        'Authorization': `Basic ${auth}`
       }
     }, (res) => {
       let data = '';
@@ -74,7 +77,7 @@ async function sendViaAfricaTalking(to, message) {
           } else if (parsed.SMSMessageData && parsed.SMSMessageData.message === 'Sent') {
             resolve({ success: true, provider: 'africa_talking', status: 'Sent', raw: parsed });
           } else {
-            resolve({ success: false, provider: 'africa_talking', status, raw: parsed, error: parsed.SMSMessageData?.message || 'Unknown response' });
+            resolve({ success: false, provider: 'africa_talking', status: parsed.status, raw: parsed, error: parsed.SMSMessageData?.message || parsed.errorMessage || 'Unknown response' });
           }
         } catch (e) {
           resolve({ success: false, provider: 'africa_talking', error: 'Invalid JSON response', raw: data });
@@ -83,7 +86,7 @@ async function sendViaAfricaTalking(to, message) {
     });
 
     req.on('error', reject);
-    req.write(payload);
+    req.write(formData.toString());
     req.end();
   });
 }
