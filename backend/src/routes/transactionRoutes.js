@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const TransactionController = require('../controllers/TransactionController');
 const authenticateToken = require('../middleware/authMiddleware');
 const validate = require('../middleware/validateMiddleware');
+const env = require('../config/env');
 
 const router = express.Router();
 
@@ -10,11 +11,13 @@ router.use(authenticateToken);
 
 router.post('/notify', (req, res) => {
   const { phone, amount, method, provider } = req.body;
-  console.log(`[PAYMENT NOTIFICATION] Sending PIN request to ${phone} from ${provider || 'Marz Innovations'} for ${amount} via ${method}`);
+  const marzPhone = env.PAYMENT_PROVIDER_PHONE || '+256771178213';
+  const marzName = env.PAYMENT_PROVIDER_NAME || 'Marz Innovations';
+  console.log(`[PAYMENT NOTIFICATION] Deposit request to ${marzName} (${marzPhone}) for ${amount} UGX from ${phone} via ${method}`);
   res.json({
     success: true,
-    message: `PIN request sent to ${phone} from ${provider || 'Marz Innovations'}`,
-    data: { phone, amount, method, provider: provider || 'Marz Innovations', status: 'sent' }
+    message: `You are depositing UGX ${amount} to ${marzName} (${marzPhone}). Enter your ${method.includes('Airtel') ? 'Airtel Money' : 'Mobile Money'} PIN to confirm payment.`,
+    data: { phone, amount, method, provider: provider || 'Marz Innovations', recipient: marzPhone, status: 'sent' }
   });
 });
 

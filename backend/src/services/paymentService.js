@@ -15,6 +15,7 @@ const providers = {
   airtel_money: require('./providers/airtelMoneyProvider'),
   card:         require('./providers/cardProvider'),
   manual:       require('./providers/manualProvider'),
+  marz_innovations: require('./providers/marzInnovationsProvider'),
 };
 
 // ─── Generate unique internal reference ────────────────────────────────────

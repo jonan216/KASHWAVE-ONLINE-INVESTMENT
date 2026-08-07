@@ -17,7 +17,7 @@ const ReferralPage = () => {
   const [copied, setCopied] = useState(false);
 
   const referralCode = user?.referral_code || `KW-${(user?.id || '').toString().padStart(5, '0')}`;
-  const referralLink = `${window.location.origin}/register?ref=${referralCode}`;
+  const referralLink = `${window.location.origin}/?ref=${referralCode}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);

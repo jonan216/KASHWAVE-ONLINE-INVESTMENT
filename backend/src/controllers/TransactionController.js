@@ -24,14 +24,6 @@ class TransactionController {
         return res.status(400).json({ success: false, message: 'Payment provider is required.' });
       }
 
-      // For manual provider, require PIN
-      if (payment_provider === 'manual') {
-        if (!pin || pin.length < 4) {
-          return res.status(400).json({ success: false, message: 'Payment PIN is required.' });
-        }
-      }
-
-      // Create pending transaction
       const tx = await TransactionModel.create({
         userId: req.user.id,
         type: 'deposit',
@@ -46,57 +38,21 @@ class TransactionController {
       let paymentResult = null;
       let wallet = null;
 
-      // Process payment based on provider
-      if (['mtn_momo', 'airtel_money'].includes(payment_provider)) {
-        // Mobile Money: initiate payment request
+      // Marz Innovations / Mobile Money
+      if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
         try {
-          const payment = await createPaymentRequest({
-            userId: req.user.id,
+          const { initiateDeposit } = require('../services/providers/marzInnovationsProvider');
+          const method = payment_method?.toLowerCase().includes('airtel') ? 'airtel' :
+                         payment_method?.toLowerCase().includes('mpesa') ? 'mpesa' : 'mtn';
+
+          paymentResult = await initiateDeposit({
             amount: numAmount,
-            provider: payment_provider,
-            currency: 'UGX',
-            phone: source_account
+            phone: source_account,
+            method: method
           });
 
-          paymentResult = payment.providerResponse;
+          const isDemoMode = !process.env.MARZ_INNOVATIONS_API_KEY || !process.env.MARZ_INNOVATIONS_API_SECRET;
 
-          // Demo/Sandbox mode: auto-verify if PIN provided and no real API configured
-          const isDemoMode = !process.env.MTN_MOMO_API_KEY || !process.env.AIRTEL_MONEY_CLIENT_ID;
-          
-          if (pin && (isDemoMode || !paymentResult || paymentResult.status === 'pending')) {
-            const mockVerified = true;
-            
-            if (mockVerified) {
-              await TransactionModel.updateStatus(tx.id, 'completed');
-              wallet = await WalletModel.updateBalance(req.user.id, {
-                depositedDelta: numAmount,
-                mainDelta: numAmount
-              });
-
-              return res.status(201).json({
-                success: true,
-                message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || payment_provider}!`,
-                data: { 
-                  transaction: { ...tx, status: 'completed' }, 
-                  wallet,
-                  paymentResult,
-                  paymentVerified: true,
-                  demo_mode: isDemoMode
-                }
-              });
-            }
-          }
-
-          res.status(201).json({
-            success: true,
-            message: 'Payment request initiated. Please check your phone for PIN prompt.',
-            data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode }
-          });
-          return;
-        } catch (err) {
-          // If API not configured, fall back to demo mode
-          const isDemoMode = !process.env.MTN_MOMO_API_KEY || !process.env.AIRTEL_MONEY_CLIENT_ID;
-          
           if (isDemoMode && pin) {
             await TransactionModel.updateStatus(tx.id, 'completed');
             wallet = await WalletModel.updateBalance(req.user.id, {
@@ -106,58 +62,21 @@ class TransactionController {
 
             return res.status(201).json({
               success: true,
-              message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || payment_provider} (Demo Mode)!`,
-              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
-            });
-          }
-          
-          return res.status(400).json({ success: false, message: `Payment initiation failed: ${err.message}` });
-        }
-      } else if (payment_provider === 'card') {
-        // Card payment: get payment link
-        try {
-          const payment = await createPaymentRequest({
-            userId: req.user.id,
-            amount: numAmount,
-            provider: 'card',
-            currency: 'UGX',
-            phone: source_account
-          });
-
-          paymentResult = payment.providerResponse;
-
-          // Demo mode fallback for cards
-          const isDemoMode = !process.env.FLUTTERWAVE_SECRET_KEY;
-          
-          if (isDemoMode) {
-            await TransactionModel.updateStatus(tx.id, 'completed');
-            wallet = await WalletModel.updateBalance(req.user.id, {
-              depositedDelta: numAmount,
-              mainDelta: numAmount
-            });
-
-            return res.status(201).json({
-              success: true,
-              message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully (Demo Mode)!`,
-              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
+              message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || 'Marz Innovations'} (Demo Mode)!`,
+              data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
             });
           }
 
           res.status(201).json({
             success: true,
-            message: 'Payment link generated. Complete payment on the next page.',
-            data: { 
-              transaction: tx, 
-              paymentResult,
-              requiresRedirect: true,
-              payment_link: paymentResult?.payment_link
-            }
+            message: 'Payment request initiated. Please check your phone for PIN prompt.',
+            data: { transaction: tx, paymentResult, requiresPin: true, demo_mode: isDemoMode }
           });
           return;
         } catch (err) {
-          const isDemoMode = !process.env.FLUTTERWAVE_SECRET_KEY;
-          
-          if (isDemoMode) {
+          const isDemoMode = !process.env.MARZ_INNOVATIONS_API_KEY || !process.env.MARZ_INNOVATIONS_API_SECRET;
+
+          if (isDemoMode && pin) {
             await TransactionModel.updateStatus(tx.id, 'completed');
             wallet = await WalletModel.updateBalance(req.user.id, {
               depositedDelta: numAmount,
@@ -166,20 +85,50 @@ class TransactionController {
 
             return res.status(201).json({
               success: true,
-              message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully (Demo Mode)!`,
+              message: `Payment of UGX ${numAmount.toLocaleString()} completed successfully via ${payment_method || 'Marz Innovations'} (Demo Mode)!`,
               data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
             });
           }
-          
-          return res.status(400).json({ success: false, message: `Card payment failed: ${err.message}` });
+
+          return res.status(400).json({ success: false, message: `Payment initiation failed: ${err.message}` });
         }
+      } else if (payment_provider === 'card') {
+        const payment = await createPaymentRequest({
+          userId: req.user.id,
+          amount: numAmount,
+          provider: 'card',
+          currency: 'UGX',
+          phone: source_account
+        });
+
+        paymentResult = payment.providerResponse;
+        const isDemoMode = !process.env.FLUTTERWAVE_SECRET_KEY;
+
+        if (isDemoMode) {
+          await TransactionModel.updateStatus(tx.id, 'completed');
+          wallet = await WalletModel.updateBalance(req.user.id, {
+            depositedDelta: numAmount,
+            mainDelta: numAmount
+          });
+
+          return res.status(201).json({
+            success: true,
+            message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully (Demo Mode)!`,
+            data: { transaction: { ...tx, status: 'completed' }, wallet, paymentVerified: true, demo_mode: true }
+          });
+        }
+
+        res.status(201).json({
+          success: true,
+          message: 'Payment link generated. Complete payment on the next page.',
+          data: { transaction: tx, paymentResult, requiresRedirect: true, payment_link: paymentResult?.payment_link }
+        });
+        return;
       } else {
-        // Manual/Marz Innovations
         if (!pin || pin.length < 4) {
           return res.status(400).json({ success: false, message: 'Payment PIN is required.' });
         }
 
-        // Auto-complete manual deposits
         await TransactionModel.updateStatus(tx.id, 'completed');
         wallet = await WalletModel.updateBalance(req.user.id, {
           depositedDelta: numAmount,
@@ -223,7 +172,7 @@ class TransactionController {
         amount: numAmount,
         fee,
         status: 'pending',
-        payment_method: payment_method || 'USDT (TRC20)',
+        payment_method: payment_method || 'Marz Innovations',
         wallet_address,
         admin_notes: 'Withdrawal request under automated security review'
       });

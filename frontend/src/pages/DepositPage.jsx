@@ -11,12 +11,12 @@ import {
 } from 'react-icons/fi';
 
 const PAYMENT_METHODS = [
-  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'momo', ussd: '*165#', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Secure MTN Mobile Money deposit' },
-  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'momo', ussd: '*185#', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Secure Airtel Mobile Money deposit' },
+  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'marz_innovations', method: 'mtn', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Deposit via Marz Innovations - MTN' },
+  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'marz_innovations', method: 'airtel', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Deposit via Marz Innovations - Airtel' },
+  { id: 'M-Pesa',          label: 'M-Pesa',           type: 'marz_innovations', method: 'mpesa', icon: FiSmartphone, badge: 'Kenya', accent: '#4CAF50', desc: 'Deposit via Marz Innovations - M-Pesa' },
   { id: 'Visa Card',        label: 'Visa Card',        type: 'card', icon: FiCreditCard, badge: 'International', accent: '#1A1F71', desc: 'Debit / Credit card checkout' },
   { id: 'MasterCard',       label: 'MasterCard',       type: 'card', icon: FiCreditCard, badge: 'International', accent: '#EB001B', desc: 'Debit / Credit card checkout' },
-  { id: 'Bank Transfer',    label: 'Bank Transfer',    type: 'bank', icon: FiGlobe, badge: 'Wire / SWIFT', accent: '#102542', desc: 'Direct wire & online banking' },
-  { id: 'Marz Innovations',  label: 'Marz Innovations', type: 'manual', icon: FiSmartphone, badge: 'UG', accent: '#D4AF37', desc: 'WhatsApp/Email verified payments' }
+  { id: 'Bank Transfer',    label: 'Bank Transfer',    type: 'bank', icon: FiGlobe, badge: 'Wire / SWIFT', accent: '#102542', desc: 'Direct wire & online banking' }
 ];
 
 const DepositPage = () => {
@@ -328,7 +328,7 @@ const DepositPage = () => {
               {/* Security Notice */}
               <div className="bg-[#D4AF37]/10 p-3.5 rounded-2xl border border-[#D4AF37]/35 text-xs text-[#102542] leading-relaxed flex items-start gap-2">
                 <FiSmartphone className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
-                <span>A PIN request has been sent to <strong>{sourceAccount}</strong> from <strong>Marz Innovations</strong>. Please check your phone and enter the PIN below to complete payment.</span>
+                <span>You are depositing <strong>{formatCurrency(numAmount)}</strong> to <strong>Marz Innovations</strong> ({sourceAccount}). Enter your Mobile Money PIN to confirm payment.</span>
               </div>
 
               {/* Proceed to PIN Button */}

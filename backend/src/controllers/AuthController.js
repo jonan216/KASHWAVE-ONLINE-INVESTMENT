@@ -28,15 +28,34 @@ class AuthController {
           const referrer = await UserModel.findByReferralCode(referred_by_code);
           if (referrer && referrer.id !== user.id) {
             if (isPostgresConnected()) {
-              await pool.query(
-                `INSERT INTO referrals (referrer_id, referee_id, level, commission_rate)
-                 VALUES ($1, $2, 1, 4.00) ON CONFLICT DO NOTHING`,
-                [referrer.id, user.id]
-              );
+              if (pool.constructor.name === 'HttpPool') {
+                await pool.query(
+                  `INSERT INTO referrals (referrer_id, referee_id, level, commission_rate)
+                   VALUES ($1, $2, 1, 4.00)`,
+                  [referrer.id, user.id]
+                );
+              } else {
+                await pool.query(
+                  `INSERT INTO referrals (referrer_id, referee_id, level, commission_rate)
+                   VALUES ($1, $2, 1, 4.00) ON CONFLICT DO NOTHING`,
+                  [referrer.id, user.id]
+                );
+              }
               await pool.query(
                 'UPDATE users SET referred_by_code = $1 WHERE id = $2',
                 [referred_by_code, user.id]
               );
+            } else {
+              if (!mockStore.referrals) mockStore.referrals = [];
+              mockStore.referrals.push({
+                id: mockStore.referrals.length + 1,
+                referrer_id: referrer.id,
+                referee_id: user.id,
+                level: 1,
+                commission_rate: 4.00
+              });
+              const newUser = mockStore.users.find(u => u.id === user.id);
+              if (newUser) newUser.referred_by_code = referred_by_code;
             }
             await AuditLogger.log(user.id, 'auth.register.referral_linked', req, { referrer_id: referrer.id });
           }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Layout/Navbar';
 import Footer from '../components/Layout/Footer';
@@ -9,7 +9,7 @@ import {
   FiTrendingUp, FiShield, FiLock, FiDollarSign,
   FiUsers, FiAward, FiArrowRight, FiCheckCircle,
   FiChevronDown, FiZap, FiClock, FiStar, FiMail,
-  FiPhone, FiSend, FiCheck, FiHeadphones, FiActivity
+  FiPhone, FiSend, FiCheck, FiHeadphones, FiActivity, FiGift
 } from 'react-icons/fi';
 
 // Framer Motion Animation Variants
@@ -69,6 +69,8 @@ const LandingPage = () => {
   const [plans, setPlans] = useState([]);
   const [openFaq, setOpenFaq] = useState(null);
   const [statsVisible, setStatsVisible] = useState(false);
+  const [searchParams] = useSearchParams();
+  const referralCode = searchParams.get('ref');
   const statsRef = useRef(null);
 
   // Contact form state
@@ -208,6 +210,16 @@ const LandingPage = () => {
     <div className="min-h-screen bg-[#F8F4E8] text-[#102542] font-poppins selection:bg-[#D4AF37]/30">
       <Navbar />
 
+      {/* Referral Banner */}
+      {referralCode && (
+        <div className="bg-[#D4AF37] text-[#102542] py-3 px-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 text-sm font-extrabold">
+            <FiGift className="w-5 h-5" />
+            <span>You've been invited to KashWave! Use code <span className="font-mono">{referralCode}</span> when registering for bonuses.</span>
+          </div>
+        </div>
+      )}
+
       {/* ═══ 1. HERO SECTION ═══ */}
       <section id="home" className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden bg-white">
         {/* Decorative background glows */}
@@ -241,7 +253,7 @@ const LandingPage = () => {
 
               <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
                 <Link
-                  to="/register"
+                  to={referralCode ? `/register?ref=${referralCode}` : '/register'}
                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl gradient-gold text-[#102542] font-extrabold text-sm shadow-glow-gold hover:scale-[1.03] transition-all"
                 >
                   Start Investing <FiArrowRight className="w-4 h-4" />
