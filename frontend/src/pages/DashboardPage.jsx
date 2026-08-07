@@ -88,6 +88,19 @@ const DashboardPage = () => {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await refreshProfile();
+        const txRes = await api.get('/transactions');
+        if (txRes.data.success) setTransactions(txRes.data.data);
+      } catch (err) {
+        console.error('Dashboard auto-refresh failed:', err);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [refreshProfile]);
+
   if (loading) return <LoadingSpinner text="Loading your portfolio..." />;
 
   const mainBalance    = parseFloat(wallet?.main_balance    || 0);

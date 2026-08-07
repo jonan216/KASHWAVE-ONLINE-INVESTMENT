@@ -53,14 +53,46 @@ const DepositPage = () => {
       });
 
       if (res.data.success) {
-        showSuccess(`Deposit of ${formatCurrency(numAmount)} initiated successfully via ${selectedMethod.label}!`);
-        navigate('/dashboard/transactions');
+        if (res.data.data?.requiresPin) {
+          showSuccess(`Payment request sent to ${sourceAccount}. Enter your PIN on your phone to confirm.`);
+          await pollPaymentStatus(res.data.data.transaction?.id, res.data.data.transaction?.reference_code);
+        } else {
+          showSuccess(`Deposit of ${formatCurrency(numAmount)} completed successfully via ${selectedMethod.label}!`);
+          navigate('/dashboard/transactions');
+        }
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Deposit failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const pollPaymentStatus = async (txId, referenceCode) => {
+    const maxAttempts = 60;
+    const intervalMs = 3000;
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const txRes = await api.get('/transactions');
+        if (txRes.data.success) {
+          const tx = txRes.data.data.find(t => t.id === txId || t.reference_code === referenceCode);
+          if (tx && tx.status !== 'pending') {
+            if (tx.status === 'completed' || tx.status === 'approved') {
+              showSuccess(`Payment of ${formatCurrency(tx.amount)} confirmed! Your wallet has been updated.`);
+            } else {
+              showError(`Payment ${tx.status}. Please try again or contact support.`);
+            }
+            navigate('/dashboard/transactions');
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('[Deposit] Polling error:', err);
+      }
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    showError('Payment confirmation timeout. Please check your transactions later.');
+    navigate('/dashboard/transactions');
   };
 
   return (
@@ -201,7 +233,7 @@ const DepositPage = () => {
               {isProcessing ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
+                  Waiting for PIN confirmation...
                 </span>
               ) : (
                 <>Deposit Now <FiArrowDownLeft className="w-5 h-5 text-[#D4AF37]" /></>
