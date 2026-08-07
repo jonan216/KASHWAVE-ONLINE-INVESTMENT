@@ -76,7 +76,7 @@ In Render Dashboard → Environment → Environment Variables:
 In Vercel → Settings → Environment Variables:
 | Key | Value |
 |---|---|
-| `VITE_API_URL` | `https://kashwave-api.onrender.com/api` |
+| `VITE_API_URL` | `/api` |
 
 ### 3. Build Settings
 - Build command: `npm install && npm run build`
@@ -87,7 +87,7 @@ In Vercel → Settings → Environment Variables:
 ### Create Admin Account
 After deployment, register an admin account:
 ```bash
-curl -X POST https://kashwave-api.onrender.com/api/auth/register \
+curl -X POST https://kashwave-online-investment.vercel.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"full_name":"Admin","email":"admin@kashwave.com","password":"SecureAdminPass123!"}'
 ```

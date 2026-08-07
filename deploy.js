@@ -200,7 +200,7 @@ console.log(`
       // Update frontend API URL
       console.log('\n[6/8] Updating frontend configuration...');
       const frontendEnvPath = path.join(frontendDir, '.env');
-      const frontendApiUrl = supabaseRef ? `https://kashwave-api.onrender.com/api` : 'https://kashwave-api.vercel.app/api';
+      const frontendApiUrl = supabaseRef ? 'https://kashwave-online-investment.vercel.app/api' : 'https://kashwave-online-investment.vercel.app/api';
       fs.writeFileSync(frontendEnvPath, `VITE_API_URL=${frontendApiUrl}\n`);
       console.log('  ✅ Frontend .env updated');
 
@@ -219,12 +219,8 @@ console.log(`
 ║              DEPLOYMENT COMPLETE                           ║
 ╠═══════════════════════════════════════════════════════════╣
 ║                                                            ║
-║  🌐 Frontend:                                              ║
-║     https://kashwave-frontend.vercel.app                   ║
-║                                                            ║
-║  🔧 Backend:                                               ║
-║     https://kashwave-api.vercel.app                        ║
-║     (or https://kashwave-api.onrender.com if Render used)  ║
+║  🌐 Frontend & Backend:                                    ║
+║     https://kashwave-online-investment.vercel.app          ║
 ║                                                            ║
 ║  📋 Next steps:                                            ║
 ║     1. Apply migrations to Supabase:                       ║
