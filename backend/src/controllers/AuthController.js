@@ -9,6 +9,8 @@ const AuditLogger = require('../utils/auditLogger');
 const { mockStore, pool, isPostgresConnected } = require('../config/db');
 const { sendWelcomeWithReferralCode } = require('../services/emailService');
 const { creditReferralBonus } = require('../services/referralService');
+const { recordFailedLogin, clearFailedLogins, isAccountLocked } = require('../middleware/accountLockout');
+const { generateCsrfToken } = require('../middleware/csrfProtection');
 const env = require('../config/env');
 
 class AuthController {
@@ -159,8 +161,15 @@ class AuthController {
     try {
       const { email, password, totp_code } = req.body;
 
+      const lockResult = await isAccountLocked(email);
+      if (lockResult) {
+        await AuditLogger.log(null, 'auth.login.failure.locked', req, { email });
+        return res.status(423).json({ success: false, message: `Account locked due to too many failed attempts. Try again after ${lockResult.toLocaleTimeString()}.` });
+      }
+
       const user = await UserModel.findByEmail(email);
       if (!user) {
+        await recordFailedLogin(email);
         await AuditLogger.log(null, 'auth.login.failure.user_not_found', req, { email });
         return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
@@ -170,28 +179,18 @@ class AuthController {
         return res.status(403).json({ success: false, message: 'Account is suspended. Please contact support.' });
       }
 
+      if (user.role === 'admin' && !user.two_factor_enabled) {
+        return res.status(403).json({ success: false, message: 'Admin accounts require Two-Factor Authentication. Please enable 2FA in Security settings before logging in.' });
+      }
+
       const isMatch = await comparePassword(password, user.password_hash);
       if (!isMatch) {
+        await recordFailedLogin(email);
         await AuditLogger.log(user.id, 'auth.login.failure.incorrect_password', req, { email });
         return res.status(401).json({ success: false, message: 'Invalid email or password.' });
       }
 
-      // Check 2FA if enabled
-      if (user.two_factor_enabled) {
-        if (!totp_code) {
-          await AuditLogger.log(user.id, 'auth.login.2fa_required', req);
-          return res.status(200).json({
-            success: true,
-            requires2FA: true,
-            message: 'Two-Factor Authentication code required.'
-          });
-        }
-        const isValidTOTP = verifyToken(user.two_factor_secret, totp_code);
-        if (!isValidTOTP) {
-          await AuditLogger.log(user.id, 'auth.login.failure.2fa_invalid', req);
-          return res.status(400).json({ success: false, message: 'Invalid 2FA code.' });
-        }
-      }
+      await clearFailedLogins(email);
 
       const accessToken = generateAccessToken(user);
       const refreshToken = generateRefreshToken(user);
@@ -200,6 +199,8 @@ class AuthController {
 
       await RefreshTokenModel.deleteAllForUser(user.id);
       await RefreshTokenModel.create(user.id, tokenHash, expiresAt);
+
+      const csrfToken = await generateCsrfToken(user.id);
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
@@ -239,6 +240,7 @@ class AuthController {
         wallet,
         accessToken,
         refreshToken,
+        csrfToken,
         welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null
       };
 
@@ -273,26 +275,23 @@ class AuthController {
 
       const decoded = verifyRefreshToken(refreshToken);
       const tokenHash = hashToken(refreshToken);
-      const stored = await RefreshTokenModel.findByToken(tokenHash);
 
-      if (!stored || stored.user_id !== decoded.id) {
+      const newRefreshToken = await rotateRefreshToken(refreshToken);
+      if (!newRefreshToken) {
         await AuditLogger.log(decoded.id, 'auth.refresh.invalid_token', req);
         return res.status(403).json({ success: false, message: 'Invalid or revoked refresh token.' });
       }
 
-      await RefreshTokenModel.delete(tokenHash);
-
+      const newTokenHash = hashToken(newRefreshToken);
+      const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const user = await UserModel.findById(decoded.id);
+
       if (!user) {
         return res.status(403).json({ success: false, message: 'Invalid refresh token.' });
       }
 
       const newAccessToken = generateAccessToken(user);
-      const newRefreshToken = generateRefreshToken(user);
-      const newTokenHash = hashToken(newRefreshToken);
-      const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-      await RefreshTokenModel.create(user.id, newTokenHash, newExpiresAt);
+      const newCsrfToken = await generateCsrfToken(user.id);
 
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
@@ -305,7 +304,8 @@ class AuthController {
         success: true,
         data: {
           accessToken: newAccessToken,
-          refreshToken: newRefreshToken
+          refreshToken: newRefreshToken,
+          csrfToken: newCsrfToken
         }
       });
     } catch (err) {

@@ -16,6 +16,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    const csrfToken = localStorage.getItem('kashwave_csrf_token');
+    if (csrfToken && ['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase())) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
     return config;
   },
   (error) => Promise.reject(error)

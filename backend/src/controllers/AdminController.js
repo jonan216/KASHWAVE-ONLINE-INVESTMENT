@@ -9,9 +9,11 @@ const { processROIPayouts } = require('../services/roiEngine');
 const { sendWithdrawalStatusEmail } = require('../services/emailService');
 
 class AdminController {
-  // ─── Dashboard Stats ──────────────────────────────────────────────────────
   static async getStats(req, res, next) {
     try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+      }
       const allUsers       = await UserModel.getAllUsers();
       const allTransactions = await TransactionModel.getAll();
       const allInvestments = await InvestmentModel.getAll();

@@ -37,9 +37,10 @@ export const AuthProvider = ({ children }) => {
       return { requires2FA: true };
     }
     if (res.data.success) {
-      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus } = res.data.data;
+      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus, csrfToken } = res.data.data;
       localStorage.setItem('kashwave_access_token', accessToken);
       localStorage.setItem('kashwave_refresh_token', refreshToken);
+      if (csrfToken) localStorage.setItem('kashwave_csrf_token', csrfToken);
       setUser(userData);
       setWallet(walletData);
       if (welcome_bonus) {
@@ -54,9 +55,10 @@ export const AuthProvider = ({ children }) => {
     if (referredByCode) payload.referred_by_code = referredByCode;
     const res = await api.post('/auth/register', payload);
     if (res.data.success) {
-      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus } = res.data.data;
+      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus, csrfToken } = res.data.data;
       localStorage.setItem('kashwave_access_token', accessToken);
       localStorage.setItem('kashwave_refresh_token', refreshToken);
+      if (csrfToken) localStorage.setItem('kashwave_csrf_token', csrfToken);
       setUser(userData);
       setWallet(walletData);
       if (welcome_bonus) {
@@ -69,6 +71,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('kashwave_access_token');
     localStorage.removeItem('kashwave_refresh_token');
+    localStorage.removeItem('kashwave_csrf_token');
     setUser(null);
     setWallet(null);
   };

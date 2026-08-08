@@ -7,6 +7,11 @@ const rateLimit = require('express-rate-limit');
 const env = require('./config/env');
 const { testConnection, isPostgresConnected } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const maskSensitiveData = require('./middleware/maskSensitiveData');
+const { validateCsrfToken } = require('./middleware/csrfProtection');
+
+// Security middlewares
+const requestId = require('./middleware/requestId');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -21,31 +26,48 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Disable x-powered-by header (done by helmet too, but good practice)
 app.disable('x-powered-by');
 
-// Enforce HTTP Security Headers via Helmet
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: true,
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'no-referrer' },
+  strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true }
+}));
 
-// Cookie Parser for JWT storage in httpOnly secure cookies
+app.use(requestId);
+
 app.use(cookieParser());
 
-// Prevent HTTP Parameter Pollution (HPP)
 app.use(hpp());
 
-// Global CORS Configuration
 app.use(cors({
   origin: env.CLIENT_ORIGIN || 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
 
-// Payload Body size limit to prevent Denial of Service (DoS) attacks
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Global Security rate limiter (300 requests / 15 minutes)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 300,
@@ -55,7 +77,6 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Specific Auth Brute-force rate limiter (10 requests / 10 minutes for registration/login/forgot password)
 const authBruteLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 15,
@@ -67,6 +88,36 @@ const authBruteLimiter = rateLimit({
 app.use('/api/auth/login', authBruteLimiter);
 app.use('/api/auth/register', authBruteLimiter);
 app.use('/api/auth/forgot-password', authBruteLimiter);
+
+const transactionLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many transaction requests. Please try again after 5 minutes.' }
+});
+app.use('/api/transactions/deposit', transactionLimiter);
+app.use('/api/transactions/withdraw', transactionLimiter);
+
+const refreshLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many token refresh attempts. Please try again later.' }
+});
+app.use('/api/auth/refresh', refreshLimiter);
+
+const csrfProtectedRoutes = ['/api/transactions', '/api/admin', '/api/users', '/api/kyc'];
+app.use((req, res, next) => {
+  if (csrfProtectedRoutes.some(route => req.path.startsWith(route)) && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+    const csrfToken = req.headers['x-csrf-token'];
+    if (!csrfToken || !validateCsrfToken(req.user?.id, csrfToken)) {
+      return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token.' });
+    }
+  }
+  next();
+});
 
 
 // Health Check API
@@ -100,6 +151,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks', webhookRoutes);
+
+app.use(maskSensitiveData);
 
 // 404 handler
 app.use((req, res) => {

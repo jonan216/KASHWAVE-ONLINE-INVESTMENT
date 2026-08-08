@@ -30,10 +30,15 @@ function verifyRefreshToken(token) {
   return jwt.verify(token, env.REFRESH_SECRET);
 }
 
+function generateRequestId() {
+  return crypto.randomUUID();
+}
+
 module.exports = {
   generateAccessToken,
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-  hashToken
+  hashToken,
+  generateRequestId
 };
