@@ -21,7 +21,7 @@ class UserModel {
 
   static async findById(id) {
     if (isPostgresConnected()) {
-      const res = await pool.query('SELECT id, full_name, email, role, is_email_verified, two_factor_enabled, two_factor_secret, status, created_at FROM users WHERE id = $1', [id]);
+      const res = await pool.query('SELECT id, full_name, email, role, is_email_verified, two_factor_enabled, two_factor_secret, status, has_received_welcome_bonus, created_at FROM users WHERE id = $1', [id]);
       return res.rows[0] || null;
     } else {
       const user = mockStore.users.find(u => u.id === parseInt(id));

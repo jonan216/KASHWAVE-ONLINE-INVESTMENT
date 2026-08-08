@@ -59,5 +59,6 @@ module.exports = {
   AIRTEL_CLIENT_SECRET: process.env.AIRTEL_MONEY_CLIENT_SECRET || null,
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
+  WELCOME_BONUS_AMOUNT: parseFloat(process.env.WELCOME_BONUS_AMOUNT || '0'),
 };
 

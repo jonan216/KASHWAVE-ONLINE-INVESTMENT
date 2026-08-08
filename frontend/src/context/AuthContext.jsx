@@ -37,11 +37,14 @@ export const AuthProvider = ({ children }) => {
       return { requires2FA: true };
     }
     if (res.data.success) {
-      const { accessToken, refreshToken, user: userData, wallet: walletData } = res.data.data;
+      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus } = res.data.data;
       localStorage.setItem('kashwave_access_token', accessToken);
       localStorage.setItem('kashwave_refresh_token', refreshToken);
       setUser(userData);
       setWallet(walletData);
+      if (welcome_bonus) {
+        setTimeout(() => alert(`Welcome! UGX ${welcome_bonus.amount.toLocaleString()} bonus has been added to your wallet.`), 500);
+      }
     }
     return res.data;
   };
@@ -51,11 +54,14 @@ export const AuthProvider = ({ children }) => {
     if (referredByCode) payload.referred_by_code = referredByCode;
     const res = await api.post('/auth/register', payload);
     if (res.data.success) {
-      const { accessToken, refreshToken, user: userData, wallet: walletData } = res.data.data;
+      const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus } = res.data.data;
       localStorage.setItem('kashwave_access_token', accessToken);
       localStorage.setItem('kashwave_refresh_token', refreshToken);
       setUser(userData);
       setWallet(walletData);
+      if (welcome_bonus) {
+        setTimeout(() => alert(`Welcome! UGX ${welcome_bonus.amount.toLocaleString()} bonus has been added to your wallet.`), 500);
+      }
     }
     return res.data;
   };

@@ -1,5 +1,6 @@
 const UserModel = require('../models/UserModel');
 const WalletModel = require('../models/WalletModel');
+const TransactionModel = require('../models/TransactionModel');
 const RefreshTokenModel = require('../models/RefreshTokenModel');
 const { hashPassword, comparePassword } = require('../utils/hash');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } = require('../utils/token');
@@ -7,8 +8,50 @@ const { generateSecret, generateQRCode, verifyToken } = require('../utils/totp')
 const AuditLogger = require('../utils/auditLogger');
 const { mockStore, pool, isPostgresConnected } = require('../config/db');
 const { sendWelcomeWithReferralCode } = require('../services/emailService');
+const env = require('../config/env');
 
 class AuthController {
+  static async creditWelcomeBonusIfEligible(userId) {
+    const bonusAmount = env.WELCOME_BONUS_AMOUNT || 0;
+    if (!bonusAmount || bonusAmount <= 0) return null;
+
+    const user = await UserModel.findById(userId);
+    if (!user || user.has_received_welcome_bonus) return null;
+
+    const wallet = await WalletModel.updateBalance(userId, {
+      mainDelta: bonusAmount,
+      depositedDelta: bonusAmount
+    });
+
+    const referenceCode = `KW-WB-${Date.now()}-${Math.floor(Math.random() * 900000 + 100000)}`;
+    if (isPostgresConnected()) {
+      await pool.query(
+        `INSERT INTO transactions (reference_code, user_id, type, amount, currency, status, payment_method, admin_notes)
+         VALUES ($1, $2, 'welcome_bonus', $3, 'UGX', 'completed', 'System', 'Welcome bonus for new user')`,
+        [referenceCode, userId, bonusAmount]
+      );
+      await pool.query('UPDATE users SET has_received_welcome_bonus = TRUE WHERE id = $1', [userId]);
+    } else {
+      if (!mockStore.transactions) mockStore.transactions = [];
+      mockStore.transactions.push({
+        id: Date.now(),
+        reference_code: referenceCode,
+        user_id: userId,
+        type: 'welcome_bonus',
+        amount: bonusAmount,
+        currency: 'UGX',
+        status: 'completed',
+        payment_method: 'System',
+        admin_notes: 'Welcome bonus for new user',
+        created_at: new Date().toISOString()
+      });
+      const u = mockStore.users.find(u => u.id === userId);
+      if (u) u.has_received_welcome_bonus = true;
+    }
+
+    return { wallet, bonusAmount, referenceCode };
+  }
+
   static async register(req, res, next) {
     try {
       const { full_name, email, password, referred_by_code } = req.body;
@@ -74,6 +117,12 @@ class AuthController {
 
       const wallet = await WalletModel.getByUserId(user.id);
 
+      const bonus = await AuthController.creditWelcomeBonusIfEligible(user.id);
+      if (bonus) {
+        wallet.main_balance = bonus.wallet.main_balance;
+        wallet.total_deposited = bonus.wallet.total_deposited;
+      }
+
       const origin = `${req.protocol}://${req.get('host')}`;
       const clientOrigin = process.env.CLIENT_ORIGIN && process.env.CLIENT_ORIGIN !== '*'
         ? process.env.CLIENT_ORIGIN
@@ -97,8 +146,8 @@ class AuthController {
 
       res.status(201).json({
         success: true,
-        message: 'Account created! Check your email for your referral code.',
-        data: { user, wallet, accessToken, refreshToken }
+        message: bonus ? `Welcome! UGX ${bonus.bonusAmount.toLocaleString()} bonus has been added to your wallet.` : 'Account created! Check your email for your referral code.',
+        data: { user, wallet, accessToken, refreshToken, welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null }
       });
     } catch (err) {
       next(err);
@@ -159,18 +208,26 @@ class AuthController {
       });
 
       const wallet = await WalletModel.getByUserId(user.id);
+
+      const bonus = await AuthController.creditWelcomeBonusIfEligible(user.id);
+      if (bonus) {
+        wallet.main_balance = bonus.wallet.main_balance;
+        wallet.total_deposited = bonus.wallet.total_deposited;
+      }
+
       const { password_hash, ...userClean } = user;
 
       await AuditLogger.log(user.id, 'auth.login.success', req);
 
       res.json({
         success: true,
-        message: 'Logged in successfully!',
+        message: bonus ? `Welcome back! UGX ${bonus.bonusAmount.toLocaleString()} welcome bonus has been added to your wallet.` : 'Logged in successfully!',
         data: {
           user: userClean,
           wallet,
           accessToken,
-          refreshToken
+          refreshToken,
+          welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null
         }
       });
     } catch (err) {
