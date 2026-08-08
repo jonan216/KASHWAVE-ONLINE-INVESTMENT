@@ -4,7 +4,7 @@
  * Raw body required for HMAC signature verification — use express.raw()
  */
 const express = require('express');
-const { processVerifiedWebhook } = require('../services/paymentService');
+const { processVerifiedWebhook, verifyWebhookSignature } = require('../services/paymentService');
 const { writeAuditLog } = require('../middleware/auditLogger');
 
 const router = express.Router();
@@ -66,8 +66,14 @@ router.post('/flutterwave', async (req, res) => {
 router.post('/marz', async (req, res) => {
   try {
     const signature = req.headers['x-marz-signature'] || req.headers['authorization'];
-    const rawPayload = req.body;
-    const payload = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload;
+    const rawBody = req.body;
+
+    if (!verifyWebhookSignature('marz_innovations', rawBody, signature, process.env.PAYMENT_WEBHOOK_SECRET)) {
+      await writeAuditLog({ action: 'webhook_signature_invalid', description: 'Rejected unsigned MarzPay webhook', severity: 'critical', ipAddress: req.ip });
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    const payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
 
     const normalizedPayload = {
       reference: payload.transaction?.reference || payload.reference,
@@ -80,7 +86,13 @@ router.post('/marz', async (req, res) => {
       raw: payload
     };
 
-    await processVerifiedWebhook({ providerName: 'marz_innovations', rawPayload: normalizedPayload, signature, req });
+    await processVerifiedWebhook({
+      providerName: 'marz_innovations',
+      rawPayload: normalizedPayload,
+      signature,
+      req,
+      skipSignatureVerification: true
+    });
     res.status(200).json({ status: 'received' });
   } catch (err) {
     await writeAuditLog({ action: 'webhook_error', description: `MarzPay webhook error: ${err.message}`, severity: 'critical', ipAddress: req.ip });

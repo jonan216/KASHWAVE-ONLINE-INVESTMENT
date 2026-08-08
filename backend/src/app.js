@@ -19,6 +19,8 @@ const webhookRoutes = require('./routes/webhookRoutes');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Disable x-powered-by header (done by helmet too, but good practice)
 app.disable('x-powered-by');
 

@@ -74,6 +74,10 @@ function marzRequest(path, method = 'GET', body = null) {
     });
 
     req.on('error', reject);
+    req.setTimeout(30000, () => {
+      req.destroy();
+      reject(new Error('MarzPay API request timeout'));
+    });
     if (payload) req.write(payload);
     req.end();
   });
