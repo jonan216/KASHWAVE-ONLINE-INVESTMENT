@@ -1,5 +1,7 @@
 # MarzPay Live Payment Setup Guide
 
+**Last updated:** 2026-08-07
+
 Complete these steps in order to enable live deposits/withdrawals via MarzPay.
 
 ---
