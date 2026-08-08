@@ -1,7 +1,6 @@
--- Fix: Drop existing exec_sql and recreate with correct signature
+-- Drop existing exec_sql and recreate with fixed jsonb concatenation
 DROP FUNCTION IF EXISTS exec_sql(text);
 
--- Create exec_sql RPC function for Supabase HTTP API mode
 CREATE OR REPLACE FUNCTION exec_sql(sql text)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -16,7 +15,7 @@ BEGIN
   
   IF sql_trimmed LIKE 'select%' OR sql_trimmed LIKE 'with%' OR sql_trimmed LIKE '%returning%' THEN
     FOR rec IN EXECUTE sql LOOP
-      result_rows := result_rows || row_to_json(rec);
+      result_rows := result_rows || (row_to_json(rec)::jsonb);
     END LOOP;
     GET DIAGNOSTICS rows_affected = ROW_COUNT;
     RETURN jsonb_build_object('rows', result_rows, 'rows_affected', rows_affected);
@@ -35,5 +34,4 @@ $$;
 GRANT EXECUTE ON FUNCTION exec_sql(text) TO anon;
 GRANT EXECUTE ON FUNCTION exec_sql(text) TO authenticated;
 
--- Add welcome bonus column if missing
 ALTER TABLE users ADD COLUMN IF NOT EXISTS has_received_welcome_bonus BOOLEAN DEFAULT FALSE;
