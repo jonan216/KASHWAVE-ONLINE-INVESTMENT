@@ -99,22 +99,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
-app.get('/api/ip', async (req, res) => {
-  try {
-    const https = require('https');
-    const ipResponse = await new Promise((resolve, reject) => {
-      https.get('https://api.ipify.org', (response) => {
-        let data = '';
-        response.on('data', (chunk) => data += chunk);
-        response.on('end', () => resolve(data));
-      }).on('error', reject);
-    });
-    res.json({ success: true, ip: ipResponse });
-  } catch (err) {
-    res.json({ success: false, ip: req.ip || req.connection.remoteAddress, error: err.message });
-  }
-});
-
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'API Route not found.' });
