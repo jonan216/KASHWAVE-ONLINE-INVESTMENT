@@ -7,6 +7,9 @@ import { NotificationProvider } from './context/NotificationContext';
 import ProtectedRoute from './components/Common/ProtectedRoute';
 import AdminRoute from './components/Common/AdminRoute';
 
+// Error Boundary
+import ErrorBoundary from './components/Common/ErrorBoundary';
+
 // Layouts
 import DashboardLayout from './components/Layout/DashboardLayout';
 
@@ -32,10 +35,11 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function App() {
   return (
-    <Router>
-      <NotificationProvider>
-        <AuthProvider>
-          <Routes>
+    <ErrorBoundary>
+      <Router>
+        <NotificationProvider>
+          <AuthProvider>
+            <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
@@ -84,6 +88,7 @@ function App() {
         </AuthProvider>
       </NotificationProvider>
     </Router>
+    </ErrorBoundary>
   );
 }
 
