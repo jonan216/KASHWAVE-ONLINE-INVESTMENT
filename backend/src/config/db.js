@@ -67,12 +67,12 @@ class HttpPool {
             if (unwrapped && unwrapped.error) {
               const err = new Error(unwrapped.error);
               reject(err);
+            } else if (unwrapped && typeof unwrapped === 'object' && Array.isArray(unwrapped.rows)) {
+              resolve({ rows: unwrapped.rows, rowCount: unwrapped.rows_affected || unwrapped.rows.length });
             } else if (Array.isArray(unwrapped)) {
               resolve({ rows: unwrapped, rowCount: unwrapped.length });
             } else if (unwrapped && typeof unwrapped === 'object' && unwrapped.rows_affected !== undefined) {
               resolve({ rows: [], rowCount: unwrapped.rows_affected });
-            } else if (unwrapped && typeof unwrapped === 'object' && Array.isArray(unwrapped.rows)) {
-              resolve({ rows: unwrapped.rows, rowCount: unwrapped.rows_affected || unwrapped.rows.length });
             } else {
               resolve({ rows: [], rowCount: 0 });
             }
