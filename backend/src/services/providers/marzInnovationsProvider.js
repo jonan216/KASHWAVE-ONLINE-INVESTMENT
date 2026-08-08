@@ -85,7 +85,7 @@ function marzRequest(path, method = 'GET', body = null) {
 
 const initPayment = async ({ amount, currency = 'UGX', reference, phone, method = 'mtn' }) => {
   try {
-    const uuidReference = reference || generateUUID();
+    const uuidReference = generateUUID();
     const normalizedPhone = formatPhoneToE164(phone);
     const response = await marzRequest('/collect-money', 'POST', {
       amount: Number(amount),
