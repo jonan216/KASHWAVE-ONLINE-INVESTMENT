@@ -61,5 +61,6 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
   WELCOME_BONUS_AMOUNT: parseFloat(process.env.WELCOME_BONUS_AMOUNT || '0'),
+  REFERRAL_BONUS_AMOUNT: parseFloat(process.env.REFERRAL_BONUS_AMOUNT || '200'),
 };
 

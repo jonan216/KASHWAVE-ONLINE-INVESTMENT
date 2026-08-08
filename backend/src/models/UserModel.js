@@ -184,6 +184,33 @@ class UserModel {
       if (user) user.status = status;
     }
   }
+
+  static async getReferredUsers(referrerId) {
+    if (isPostgresConnected()) {
+      const res = await pool.query(
+        `SELECT u.id, u.full_name, u.email, u.created_at, r.level, r.commission_rate, r.earned_amount, r.status
+         FROM referrals r
+         JOIN users u ON r.referee_id = u.id
+         WHERE r.referrer_id = $1
+         ORDER BY r.created_at DESC`,
+        [referrerId]
+      );
+      return res.rows;
+    } else {
+      return mockStore.referrals
+        .filter(r => r.referrer_id === parseInt(referrerId))
+        .map(r => {
+          const referee = mockStore.users.find(u => u.id === r.referee_id) || {};
+          return {
+            ...referee,
+            level: r.level,
+            commission_rate: r.commission_rate,
+            earned_amount: r.earned_amount || 0,
+            status: r.status || 'active'
+          };
+        });
+    }
+  }
 }
 
 module.exports = UserModel;

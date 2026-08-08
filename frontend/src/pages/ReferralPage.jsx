@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { formatUGX, RULES } from '../utils/currency';
+import api from '../services/api';
 import {
   FiGift, FiCopy, FiCheckCircle, FiUsers, FiDollarSign,
-  FiShare2, FiTrendingUp, FiAward, FiSmile
+  FiShare2, FiTrendingUp, FiAward, FiSmile, FiUserPlus
 } from 'react-icons/fi';
 
 const fadeUp = {
@@ -15,9 +16,27 @@ const fadeUp = {
 const ReferralPage = () => {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [referrals, setReferrals] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const referralCode = user?.referral_code || `KW-${(user?.id || '').toString().padStart(5, '0')}`;
   const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+
+  useEffect(() => {
+    const fetchReferrals = async () => {
+      try {
+        const res = await api.get('/auth/referrals');
+        if (res.data.success) {
+          setReferrals(res.data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch referrals:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReferrals();
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
@@ -135,6 +154,47 @@ const ReferralPage = () => {
         </div>
       </div>
 
+      {/* Referred Users List */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-extrabold text-[#102542]">Your Referrals ({referrals.length})</h3>
+        {loading ? (
+          <div className="text-center py-8 text-[#102542]/50 text-sm">Loading referrals...</div>
+        ) : referrals.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-[#102542]/8 p-8 text-center">
+            <FiUserPlus className="w-12 h-12 text-[#102542]/20 mx-auto mb-3" />
+            <p className="text-sm text-[#102542]/60 font-medium">No referrals yet. Share your link to start earning!</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-[#102542]/8 overflow-hidden">
+            <div className="divide-y divide-[#102542]/8">
+              {referrals.map((ref, i) => (
+                <motion.div
+                  key={ref.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center justify-between p-4 hover:bg-[#F8F4E8]/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#102542]/10 text-[#102542] flex items-center justify-center font-extrabold text-xs">
+                      {ref.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-extrabold text-[#102542]">{ref.full_name || 'User'}</p>
+                      <p className="text-[10px] text-[#102542]/50 font-medium">{ref.email || ''}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#102542]/40">Level {ref.level}</p>
+                    <p className="text-xs font-extrabold text-[#D4AF37]">{ref.commission_rate}%</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Program Terms */}
       <div className="bg-[#F8F4E8] rounded-2xl border border-[#102542]/8 p-5 text-xs text-[#102542]/70 font-medium leading-relaxed space-y-1.5">
         <p className="font-extrabold text-[#102542] text-xs">KashWave Referral Terms:</p>
@@ -142,6 +202,7 @@ const ReferralPage = () => {
         <p>• Level 2: 3% commission on 2nd-generation referral deposits.</p>
         <p>• Level 3: 2% commission on 3rd-generation referral deposits.</p>
         <p>• Welcome Bonus: {formatUGX(RULES.WELCOME_BONUS)} credited upon registration.</p>
+        <p>• Referral Bonus: {formatUGX(RULES.REFERRAL_BONUS || 200)} credited to referrer when referee logs in for the first time.</p>
         <p>• All referral earnings are deposited directly into your available UGX main balance and can be withdrawn on Fridays.</p>
       </div>
     </motion.div>

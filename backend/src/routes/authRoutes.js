@@ -37,6 +37,8 @@ router.post('/refresh', AuthController.refreshToken);
 
 router.get('/me', authenticateToken, AuthController.getMe);
 
+router.get('/referrals', authenticateToken, AuthController.getReferrals);
+
 router.post('/2fa/setup', authenticateToken, AuthController.setup2FA);
 
 router.post(

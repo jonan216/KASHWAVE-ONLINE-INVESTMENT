@@ -8,6 +8,7 @@ const { generateSecret, generateQRCode, verifyToken } = require('../utils/totp')
 const AuditLogger = require('../utils/auditLogger');
 const { mockStore, pool, isPostgresConnected } = require('../config/db');
 const { sendWelcomeWithReferralCode } = require('../services/emailService');
+const { creditReferralBonus } = require('../services/referralService');
 const env = require('../config/env');
 
 class AuthController {
@@ -217,18 +218,46 @@ class AuthController {
 
       const { password_hash, ...userClean } = user;
 
+      let referralBonus = null;
+      if (user.referred_by_code) {
+        const referrer = await UserModel.findByReferralCode(user.referred_by_code);
+        if (referrer && referrer.id !== user.id) {
+          const existingBonus = await pool.query(
+            `SELECT id FROM transactions WHERE user_id = $1 AND type = 'referral_bonus' AND admin_notes LIKE $2 LIMIT 1`,
+            [referrer.id, `%${user.id}%`]
+          );
+          if (existingBonus.rows.length === 0) {
+            referralBonus = await creditReferralBonus(referrer.id, user.id);
+          }
+        }
+      }
+
       await AuditLogger.log(user.id, 'auth.login.success', req);
+
+      let responseData = {
+        user: userClean,
+        wallet,
+        accessToken,
+        refreshToken,
+        welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null
+      };
+
+      if (referralBonus) {
+        responseData.referral_bonus = {
+          amount: referralBonus.bonusAmount,
+          reference: referralBonus.referenceCode,
+          message: `Your referrer has received a UGX ${referralBonus.bonusAmount} bonus!`
+        };
+      }
 
       res.json({
         success: true,
-        message: bonus ? `Welcome back! UGX ${bonus.bonusAmount.toLocaleString()} welcome bonus has been added to your wallet.` : 'Logged in successfully!',
-        data: {
-          user: userClean,
-          wallet,
-          accessToken,
-          refreshToken,
-          welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null
-        }
+        message: referralBonus
+          ? `Welcome! Your referrer earned UGX ${referralBonus.bonusAmount}. ${bonus ? `You also received a UGX ${bonus.bonusAmount} welcome bonus!` : ''}`
+          : bonus
+            ? `Welcome back! UGX ${bonus.bonusAmount.toLocaleString()} welcome bonus has been added to your wallet.`
+            : 'Logged in successfully!',
+        data: responseData
       });
     } catch (err) {
       next(err);
@@ -297,6 +326,15 @@ class AuthController {
         success: true,
         data: { user, wallet }
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getReferrals(req, res, next) {
+    try {
+      const referrals = await UserModel.getReferredUsers(req.user.id);
+      res.json({ success: true, data: referrals });
     } catch (err) {
       next(err);
     }
