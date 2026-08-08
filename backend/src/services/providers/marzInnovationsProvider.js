@@ -12,6 +12,15 @@ const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz
 const MARZ_API_KEY = env.MARZ_INNOVATIONS_API_KEY;
 const MARZ_API_SECRET = env.MARZ_INNOVATIONS_API_SECRET;
 
+function formatPhoneToE164(phone) {
+  if (!phone) return phone;
+  const cleaned = String(phone).replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('256')) return `+${cleaned}`;
+  if (cleaned.startsWith('0')) return `+256${cleaned.substring(1)}`;
+  if (!cleaned.startsWith('+')) return `+${cleaned}`;
+  return phone;
+}
+
 function generateUUID() {
   if (typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -73,9 +82,10 @@ function marzRequest(path, method = 'GET', body = null) {
 const initPayment = async ({ amount, currency = 'UGX', reference, phone, method = 'mtn' }) => {
   try {
     const uuidReference = reference || generateUUID();
+    const normalizedPhone = formatPhoneToE164(phone);
     const response = await marzRequest('/collect-money', 'POST', {
       amount: Number(amount),
-      phone_number: phone,
+      phone_number: normalizedPhone,
       reference: uuidReference,
       country: 'UG',
       description: `KashWave deposit - ${formatCurrency(amount)}`,
