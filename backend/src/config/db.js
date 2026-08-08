@@ -63,13 +63,16 @@ class HttpPool {
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
-            if (parsed && parsed.error) {
-              const err = new Error(parsed.error);
+            const unwrapped = parsed && parsed.exec_sql !== undefined ? parsed.exec_sql : parsed;
+            if (unwrapped && unwrapped.error) {
+              const err = new Error(unwrapped.error);
               reject(err);
-            } else if (Array.isArray(parsed)) {
-              resolve({ rows: parsed, rowCount: parsed.length });
-            } else if (parsed && typeof parsed === 'object' && parsed.rows_affected !== undefined) {
-              resolve({ rows: [], rowCount: parsed.rows_affected });
+            } else if (Array.isArray(unwrapped)) {
+              resolve({ rows: unwrapped, rowCount: unwrapped.length });
+            } else if (unwrapped && typeof unwrapped === 'object' && unwrapped.rows_affected !== undefined) {
+              resolve({ rows: [], rowCount: unwrapped.rows_affected });
+            } else if (unwrapped && typeof unwrapped === 'object' && Array.isArray(unwrapped.rows)) {
+              resolve({ rows: unwrapped.rows, rowCount: unwrapped.rows_affected || unwrapped.rows.length });
             } else {
               resolve({ rows: [], rowCount: 0 });
             }
