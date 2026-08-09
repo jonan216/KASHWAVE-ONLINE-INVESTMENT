@@ -107,16 +107,24 @@ const PlansPage = () => {
                       <strong className="text-[#102542] font-extrabold">{plan.durationDays} Days</strong>
                     </div>
                     <div className="flex justify-between items-center text-xs border-b border-[#102542]/8 pb-2">
-                      <span className="text-[#102542]/60 font-semibold">Total Payout Return</span>
-                      <strong className="text-[#D4AF37] font-extrabold">{formatCurrency(plan.totalReturn)}</strong>
+                      <span className="text-[#102542]/60 font-semibold">Gross Payout Return</span>
+                      <strong className="text-[#D4AF37] font-extrabold">{formatCurrency(plan.grossPayout)}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs border-b border-[#102542]/8 pb-2">
+                      <span className="text-[#102542]/60 font-semibold">Total Profit</span>
+                      <strong className="text-[#16A34A] font-extrabold">{formatCurrency(plan.totalProfit)}</strong>
                     </div>
                     <div className="flex justify-between items-center text-xs border-b border-[#102542]/8 pb-2">
                       <span className="text-[#102542]/60 font-semibold">Sign Welcome Bonus</span>
                       <strong className="text-[#6366F1] font-extrabold">{formatCurrency(plan.bonus)}</strong>
                     </div>
-                    <div className="flex justify-between items-center text-xs pb-1">
+                    <div className="flex justify-between items-center text-xs border-b border-[#102542]/8 pb-2">
                       <span className="text-[#102542]/60 font-semibold">Referral Action Salary</span>
                       <strong className="text-[#102542] font-extrabold">{formatCurrency(plan.salary)}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-xs pb-1">
+                      <span className="text-[#102542]/60 font-semibold">AUM Net Yield</span>
+                      <strong className="text-[#D4AF37] font-extrabold">{(plan.ratePerDay * plan.durationDays).toFixed(0)}%</strong>
                     </div>
 
                     <div className="pt-2">

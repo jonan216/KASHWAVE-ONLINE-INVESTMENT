@@ -48,10 +48,11 @@ class InvestmentController {
         });
       }
 
-      // Calculate total expected ROI
-      const totalPercentage = parseFloat(plan.daily_return_percent) * parseInt(plan.duration_days);
-      const profit = (numAmount * totalPercentage) / 100;
-      const expectedReturn = numAmount + profit;
+      const dailyRate = parseFloat(plan.daily_return_percent) / 100;
+      const durationDays = parseInt(plan.duration_days);
+      const totalProfit = parseFloat((numAmount * dailyRate * durationDays).toFixed(2));
+      const grossPayout = parseFloat((numAmount + totalProfit).toFixed(2));
+      const expectedReturn = grossPayout;
 
       // 1. Deduct from main balance, add to investment balance
       const updatedWallet = await WalletModel.updateBalance(userId, {
@@ -97,17 +98,19 @@ class InvestmentController {
       }
 
       const numAmount = parseFloat(amount || plan.min_investment);
-      const dailyReturn = (numAmount * parseFloat(plan.daily_return_percent)) / 100;
-      const totalProfit = dailyReturn * parseInt(plan.duration_days);
-      const totalPayout = numAmount + totalProfit;
+      const dailyRate = parseFloat(plan.daily_return_percent) / 100;
+      const durationDays = parseInt(plan.duration_days);
+      const dailyReturn = parseFloat((numAmount * dailyRate).toFixed(2));
+      const totalProfit = parseFloat((dailyReturn * durationDays).toFixed(2));
+      const grossPayout = parseFloat((numAmount + totalProfit).toFixed(2));
 
       res.json({
         success: true,
         data: {
           investedAmount: numAmount,
-          dailyReturn: parseFloat(dailyReturn.toFixed(2)),
-          totalProfit: parseFloat(totalProfit.toFixed(2)),
-          totalPayout: parseFloat(totalPayout.toFixed(2)),
+          dailyReturn,
+          totalProfit,
+          grossPayout,
           durationDays: plan.duration_days,
           dailyPercent: plan.daily_return_percent
         }
