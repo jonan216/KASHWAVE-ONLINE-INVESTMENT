@@ -9,6 +9,7 @@ const { testConnection, isPostgresConnected } = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const maskSensitiveData = require('./middleware/maskSensitiveData');
 const { validateCsrfToken } = require('./middleware/csrfProtection');
+const { verifyAccessToken } = require('./utils/token');
 
 // Security middlewares
 const requestId = require('./middleware/requestId');
@@ -112,7 +113,20 @@ const csrfProtectedRoutes = ['/api/transactions', '/api/admin', '/api/users', '/
 app.use((req, res, next) => {
   if (csrfProtectedRoutes.some(route => req.path.startsWith(route)) && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     const csrfToken = req.headers['x-csrf-token'];
-    if (!csrfToken || !validateCsrfToken(req.user?.id, csrfToken)) {
+    let userId = req.user?.id;
+    if (!userId) {
+      const authHeader = req.headers['authorization'];
+      const token = authHeader && authHeader.split(' ')[1];
+      if (token) {
+        try {
+          const decoded = verifyAccessToken(token);
+          userId = decoded.id;
+        } catch (err) {
+          // token invalid, leave userId undefined
+        }
+      }
+    }
+    if (!csrfToken || !userId || !validateCsrfToken(userId, csrfToken)) {
       return res.status(403).json({ success: false, message: 'Invalid or missing CSRF token.' });
     }
   }
