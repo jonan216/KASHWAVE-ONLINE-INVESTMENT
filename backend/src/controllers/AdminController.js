@@ -26,11 +26,16 @@ class AdminController {
         .filter(t => t.status === 'completed' || t.status === 'approved')
         .reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
+      const platformEarnings = allTransactions
+        .filter(t => t.type === 'withdrawal' && t.status === 'completed')
+        .reduce((sum, t) => sum + parseFloat(t.fee || 0), 0);
+
       res.json({
         success: true,
         data: {
           totalUsers: allUsers.length,
           totalVolume: parseFloat(totalVolume.toFixed(2)),
+          platformEarnings: parseFloat(platformEarnings.toFixed(2)),
           pendingDepositsCount: pendingDeposits.length,
           pendingWithdrawalsCount: pendingWithdrawals.length,
           activeInvestmentsCount: activeInvestments.length,
