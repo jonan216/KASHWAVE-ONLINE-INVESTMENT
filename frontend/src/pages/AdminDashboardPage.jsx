@@ -23,6 +23,7 @@ const AdminDashboardPage = () => {
   const [users, setUsers]               = useState([]);
   const [plans, setPlans]               = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [lastUpdated, setLastUpdated]   = useState(null);
 
   // Search & Filters
   const [searchTerm, setSearchTerm]     = useState('');
@@ -46,6 +47,7 @@ const AdminDashboardPage = () => {
       if (txRes.data.success) setTransactions(txRes.data.data);
       if (usersRes.data.success) setUsers(usersRes.data.data);
       if (plansRes.data.success) setPlans(plansRes.data.data);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error('Admin data load failed:', err);
       showError('Failed to synchronize admin metrics.');
@@ -56,6 +58,8 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
     fetchAdminData();
+    const interval = setInterval(fetchAdminData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleApproveTx = async (id, type) => {
@@ -151,6 +155,28 @@ const AdminDashboardPage = () => {
           className="relative z-10 px-5 py-3 rounded-2xl gradient-gold text-[#102542] font-extrabold text-xs shadow-glow-gold flex items-center gap-2 hover:scale-105 transition-all shrink-0"
         >
           <FiPlus className="w-4 h-4" /> Create Investment Plan
+        </button>
+      </div>
+
+      {/* Auto-refresh status */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[10px] text-[#102542]/50 font-medium">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16A34A]"></span>
+          </span>
+          Live updates enabled — refreshing every 5s
+          {lastUpdated && (
+            <span className="text-[#102542]/40">
+              Last updated: {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={fetchAdminData}
+          className="text-[10px] text-[#D4AF37] font-extrabold uppercase tracking-widest flex items-center gap-1 hover:underline"
+        >
+          <FiRefreshCw className="w-3 h-3" /> Refresh Now
         </button>
       </div>
 
