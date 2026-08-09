@@ -36,6 +36,8 @@ const ReferralPage = () => {
       }
     };
     fetchReferrals();
+    const interval = setInterval(fetchReferrals, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleCopy = () => {
