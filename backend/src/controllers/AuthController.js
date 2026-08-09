@@ -65,7 +65,7 @@ class AuthController {
       }
 
       const password_hash = await hashPassword(password);
-      const user = await UserModel.create({ full_name, email, password_hash, role: 'user' });
+      const user = await UserModel.create({ full_name, email, password_hash, role: 'user', referred_by_code });
 
       // ── Referral tracking ────────────────────────────────────────────────────
       if (referred_by_code) {
@@ -86,10 +86,6 @@ class AuthController {
                   [referrer.id, user.id]
                 );
               }
-              await pool.query(
-                'UPDATE users SET referred_by_code = $1 WHERE id = $2',
-                [referred_by_code, user.id]
-              );
             } else {
               if (!mockStore.referrals) mockStore.referrals = [];
               mockStore.referrals.push({
@@ -99,8 +95,6 @@ class AuthController {
                 level: 1,
                 commission_rate: 4.00
               });
-              const newUser = mockStore.users.find(u => u.id === user.id);
-              if (newUser) newUser.referred_by_code = referred_by_code;
             }
             await AuditLogger.log(user.id, 'auth.register.referral_linked', req, { referrer_id: referrer.id });
           }

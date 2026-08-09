@@ -40,26 +40,22 @@ class UserModel {
     }
   }
 
-  static async create({ full_name, email, password_hash, role = 'user' }) {
+  static async create({ full_name, email, password_hash, role = 'user', referred_by_code = null }) {
     if (isPostgresConnected()) {
-      // Generate a unique referral code: KW- + 8 random alphanumeric chars
       const referral_code = 'KW-' + Math.random().toString(36).substring(2, 10).toUpperCase();
 
       if (pool.constructor.name === 'HttpPool') {
-        // HTTP mode: no transaction support, no INSERT...RETURNING
-        // Use INSERT (no RETURNING) followed by SELECT to get the created row
         await pool.query(
-          `INSERT INTO users (full_name, email, password_hash, role, is_email_verified, referral_code)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [full_name, email, password_hash, role, true, referral_code]
+          `INSERT INTO users (full_name, email, password_hash, role, is_email_verified, referral_code, referred_by_code)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [full_name, email, password_hash, role, true, referral_code, referred_by_code]
         );
         const userRes = await pool.query(
-          'SELECT id, full_name, email, role, status, referral_code, created_at FROM users WHERE LOWER(email) = LOWER($1) ORDER BY id DESC LIMIT 1',
+          'SELECT id, full_name, email, role, status, referral_code, referred_by_code, created_at FROM users WHERE LOWER(email) = LOWER($1) ORDER BY id DESC LIMIT 1',
           [email]
         );
         const newUser = userRes.rows[0];
 
-        // Create corresponding wallet
         await pool.query(
           `INSERT INTO wallets (user_id, main_balance, investment_balance, total_earnings, total_deposited, total_withdrawn)
            VALUES ($1, 0.00, 0.00, 0.00, 0.00, 0.00)`,
@@ -68,14 +64,13 @@ class UserModel {
 
         return newUser;
       } else {
-        // TCP Pool mode: full transaction support
         const client = await pool.connect();
         try {
           await client.query('BEGIN');
           const userRes = await client.query(
-            `INSERT INTO users (full_name, email, password_hash, role, is_email_verified, referral_code)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, full_name, email, role, status, referral_code, created_at`,
-            [full_name, email, password_hash, role, true, referral_code]
+            `INSERT INTO users (full_name, email, password_hash, role, is_email_verified, referral_code, referred_by_code)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, full_name, email, role, status, referral_code, referred_by_code, created_at`,
+            [full_name, email, password_hash, role, true, referral_code, referred_by_code]
           );
           const newUser = userRes.rows[0];
 
@@ -103,12 +98,12 @@ class UserModel {
         password_hash,
         role,
         is_email_verified: true,
+        referred_by_code: referred_by_code,
         status: 'active',
         created_at: new Date().toISOString()
       };
       mockStore.users.push(newUser);
       
-      // Initialize wallet
       mockStore.wallets.push({
         id: mockStore.wallets.length + 1,
         user_id: newId,
