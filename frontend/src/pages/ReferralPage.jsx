@@ -17,6 +17,7 @@ const ReferralPage = () => {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const [referrals, setReferrals] = useState([]);
+  const [totalEarned, setTotalEarned] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const referralCode = user?.referral_code || `KW-${(user?.id || '').toString().padStart(5, '0')}`;
@@ -27,7 +28,10 @@ const ReferralPage = () => {
       try {
         const res = await api.get('/auth/referrals');
         if (res.data.success) {
-          setReferrals(res.data.data || []);
+          const data = res.data.data || [];
+          setReferrals(data);
+          const total = data.reduce((sum, r) => sum + (parseFloat(r.earned_amount) || 0), 0);
+          setTotalEarned(total);
         }
       } catch (err) {
         console.error('Failed to fetch referrals:', err);
@@ -74,12 +78,12 @@ const ReferralPage = () => {
             <FiSmile className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs font-extrabold text-[#16A34A]">Welcome Bonus Active!</p>
-            <p className="text-[11px] text-[#102542]/70 font-medium">New members receive a bonus of <strong>{formatUGX(RULES.WELCOME_BONUS)}</strong> upon registration.</p>
+            <p className="text-xs font-extrabold text-[#16A34A]">Total Referral Earnings</p>
+            <p className="text-[11px] text-[#102542]/70 font-medium">You've earned <strong>{formatUGX(totalEarned)}</strong> from your network deposits.</p>
           </div>
         </div>
         <span className="text-sm font-extrabold text-[#16A34A] px-3.5 py-1.5 bg-white rounded-xl border border-[#16A34A]/20">
-          +{formatUGX(RULES.WELCOME_BONUS)}
+          {formatUGX(totalEarned)}
         </span>
       </div>
 
@@ -189,6 +193,9 @@ const ReferralPage = () => {
                   <div className="text-right">
                     <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#102542]/40">Level {ref.level}</p>
                     <p className="text-xs font-extrabold text-[#D4AF37]">{ref.commission_rate}%</p>
+                    {ref.earned_amount > 0 && (
+                      <p className="text-[10px] font-bold text-[#16A34A]">+{formatUGX(ref.earned_amount)}</p>
+                    )}
                   </div>
                 </motion.div>
               ))}

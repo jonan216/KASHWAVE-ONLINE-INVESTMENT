@@ -62,5 +62,8 @@ module.exports = {
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
   WELCOME_BONUS_AMOUNT: parseFloat(process.env.WELCOME_BONUS_AMOUNT || '0'),
   REFERRAL_BONUS_AMOUNT: parseFloat(process.env.REFERRAL_BONUS_AMOUNT || '200'),
+  REFERRAL_L1: parseFloat(process.env.REFERRAL_L1 || '4'),
+  REFERRAL_L2: parseFloat(process.env.REFERRAL_L2 || '3'),
+  REFERRAL_L3: parseFloat(process.env.REFERRAL_L3 || '2'),
 };
 

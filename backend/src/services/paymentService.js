@@ -7,6 +7,7 @@
 const crypto = require('crypto');
 const { pool, mockStore, isPostgresConnected } = require('../config/db');
 const { writeAuditLog } = require('../middleware/auditLogger');
+const { creditReferralCommissions } = require('./referralCommissionService');
 const env = require('../config/env');
 
 // ─── Provider Registry ──────────────────────────────────────────────────────
@@ -159,6 +160,18 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
           resourceType: 'wallet',
           resourceId: tx.user_id
         });
+
+        const referralCommissions = await creditReferralCommissions(tx.user_id, tx.amount);
+        if (referralCommissions.length > 0) {
+          await writeAuditLog({
+            userId: tx.user_id,
+            action: 'referral_commissions_credited',
+            description: `Referral commissions credited: ${referralCommissions.map(c => `L${c.level}: UGX ${c.amount}`).join(', ')}`,
+            severity: 'info',
+            resourceType: 'wallet',
+            resourceId: tx.user_id
+          });
+        }
       } else {
         await client.query(
           `UPDATE payment_transactions SET status='failed', failure_reason=$1, webhook_payload=$2
@@ -178,6 +191,9 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
   }
 
   return { credited: false, message: 'Mock mode — webhook processed without DB write' };
+};
+
+module.exports = { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook, generateReference };
 };
 
 module.exports = { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook, generateReference };
