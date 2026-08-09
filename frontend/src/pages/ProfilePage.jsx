@@ -56,7 +56,6 @@ const ProfilePage = () => {
   const TABS = [
     { id: 'profile', label: 'Profile Info', icon: FiUser },
     { id: 'security', label: 'Password', icon: FiLock },
-    { id: '2fa', label: '2FA Security', icon: FiShield },
   ];
 
   return (
@@ -190,56 +189,6 @@ const ProfilePage = () => {
                 {savingPw ? 'Updating...' : 'Update Password'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2FA Section */}
-      {section === '2fa' && (
-        <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden">
-          <div className="h-1.5 gradient-gold" />
-          <div className="p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center shrink-0">
-                <FiShield className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-sm font-extrabold text-[#102542]">Two-Factor Authentication</h4>
-                <p className="text-xs text-[#102542]/60 font-medium">TOTP-based authentication via Google Authenticator or Authy.</p>
-              </div>
-            </div>
-
-            <div className={`flex items-center justify-between p-4 rounded-2xl border ${
-              user?.is_2fa_enabled ? 'bg-[#16A34A]/5 border-[#16A34A]/20' : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'
-            }`}>
-              <div className="flex items-center gap-2.5">
-                <div className={`w-3 h-3 rounded-full ${user?.is_2fa_enabled ? 'bg-[#16A34A]' : 'bg-[#F59E0B]'}`} />
-                <p className="text-xs font-bold text-[#102542]">
-                  2FA is currently <strong className={user?.is_2fa_enabled ? 'text-[#16A34A]' : 'text-[#F59E0B]'}>
-                    {user?.is_2fa_enabled ? 'ENABLED' : 'DISABLED'}
-                  </strong>
-                </p>
-              </div>
-              {user?.is_2fa_enabled && <FiCheckCircle className="w-5 h-5 text-[#16A34A]" />}
-            </div>
-
-            <div className="bg-[#F8F4E8] rounded-2xl p-4 border border-[#102542]/8 text-xs text-[#102542]/70 leading-relaxed font-medium space-y-2">
-              <p className="font-extrabold text-[#102542] text-xs">Setup Instructions:</p>
-              <ol className="space-y-1.5 list-decimal list-inside">
-                <li>Download Google Authenticator or Authy on your mobile device.</li>
-                <li>Visit your KashWave 2FA setup page and scan the QR code shown.</li>
-                <li>Enter the 6-digit TOTP code to confirm activation.</li>
-                <li>Store your backup recovery codes in a secure location.</li>
-              </ol>
-            </div>
-
-            <button
-              onClick={() => showSuccess('Navigate to /dashboard/2fa for full 2FA setup.')}
-              className="w-full py-3.5 rounded-2xl gradient-navy text-[#F8F4E8] font-extrabold text-sm hover:shadow-glow-navy transition-all flex items-center justify-center gap-2"
-            >
-              <FiShield className="w-4 h-4 text-[#D4AF37]" />
-              {user?.is_2fa_enabled ? 'Manage 2FA Settings' : 'Enable 2FA Now'}
-            </button>
           </div>
         </div>
       )}

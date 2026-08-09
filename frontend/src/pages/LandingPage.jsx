@@ -168,10 +168,10 @@ const LandingPage = () => {
       q: 'What are the deposit and withdrawal minimums?',
       a: 'The minimum deposit starts at just $10, and withdrawals can be requested anytime your available balance reaches $20 or higher. Supported gateways include USDT (TRC20), Bitcoin, and Ethereum.'
     },
-    {
-      q: 'Is my invested capital secure?',
-      a: 'Yes. 95% of platform asset reserves are stored in cold-storage multi-signature vaults. We enforce mandatory 2FA TOTP authentication, AES-256 encryption, and maintain a $50M Platform Reserve Guarantee.'
-    },
+      {
+        q: 'Is my invested capital secure?',
+        a: 'Yes. 95% of platform asset reserves are stored in cold-storage multi-signature vaults. We enforce email verification, AES-256 encryption, and maintain a $50M Platform Reserve Guarantee.'
+      },
     {
       q: 'When are daily ROI earnings credited?',
       a: 'Daily returns are calculated automatically every 24 hours from the exact timestamp your investment contract is deployed and credited straight into your main wallet balance.'
@@ -267,11 +267,11 @@ const LandingPage = () => {
               </motion.div>
 
               {/* Trust Indicators */}
-              <motion.div variants={fadeIn} className="flex flex-wrap items-center justify-center gap-4 pt-3 text-xs text-[#102542]/70 font-semibold">
-                <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Zero Deposit Fees</span>
-                <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Daily Yield Payouts</span>
-                <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> 2FA Protected</span>
-              </motion.div>
+               <motion.div variants={fadeIn} className="flex flex-wrap items-center justify-center gap-4 pt-3 text-xs text-[#102542]/70 font-semibold">
+                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Zero Deposit Fees</span>
+                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Daily Yield Payouts</span>
+                 <span className="flex items-center gap-1.5"><FiCheckCircle className="w-4 h-4 text-[#16A34A]" /> Email Verified</span>
+               </motion.div>
             </motion.div>
           </div>
         </div>
@@ -501,12 +501,12 @@ const LandingPage = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                icon: FiLock,
-                title: 'Secure Investments',
-                desc: '95% cold-storage reserves, mandatory TOTP 2FA, and AES-256 encrypted ledger security.'
-              },
+             {[
+               {
+                 icon: FiLock,
+                 title: 'Secure Investments',
+                 desc: '95% cold-storage reserves, email verification, and AES-256 encrypted ledger security.'
+               },
               {
                 icon: FiZap,
                 title: 'Fast Withdrawals',

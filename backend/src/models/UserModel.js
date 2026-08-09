@@ -21,7 +21,7 @@ class UserModel {
 
   static async findById(id) {
     if (isPostgresConnected()) {
-      const res = await pool.query('SELECT id, full_name, email, role, is_email_verified, two_factor_enabled, two_factor_secret, status, has_received_welcome_bonus, created_at FROM users WHERE id = $1', [id]);
+      const res = await pool.query('SELECT id, full_name, email, role, is_email_verified, status, has_received_welcome_bonus, created_at FROM users WHERE id = $1', [id]);
       return res.rows[0] || null;
     } else {
       const user = mockStore.users.find(u => u.id === parseInt(id));
@@ -103,8 +103,6 @@ class UserModel {
         password_hash,
         role,
         is_email_verified: true,
-        two_factor_enabled: false,
-        two_factor_secret: null,
         status: 'active',
         created_at: new Date().toISOString()
       };
@@ -123,21 +121,6 @@ class UserModel {
 
       const { password_hash: _, ...userClean } = newUser;
       return userClean;
-    }
-  }
-
-  static async update2FASecret(userId, secret, enabled) {
-    if (isPostgresConnected()) {
-      await pool.query(
-        'UPDATE users SET two_factor_secret = $1, two_factor_enabled = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-        [secret, enabled, userId]
-      );
-    } else {
-      const user = mockStore.users.find(u => u.id === parseInt(userId));
-      if (user) {
-        user.two_factor_secret = secret;
-        user.two_factor_enabled = enabled;
-      }
     }
   }
 
@@ -209,6 +192,15 @@ class UserModel {
             status: r.status || 'active'
           };
         });
+    }
+  }
+
+  static async setEmailVerified(userId, verified) {
+    if (isPostgresConnected()) {
+      await pool.query('UPDATE users SET is_email_verified = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [verified, userId]);
+    } else {
+      const user = mockStore.users.find(u => u.id === parseInt(userId));
+      if (user) user.is_email_verified = verified;
     }
   }
 }

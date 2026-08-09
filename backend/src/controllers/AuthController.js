@@ -4,7 +4,6 @@ const TransactionModel = require('../models/TransactionModel');
 const RefreshTokenModel = require('../models/RefreshTokenModel');
 const { hashPassword, comparePassword } = require('../utils/hash');
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken, hashToken } = require('../utils/token');
-const { generateSecret, generateQRCode, verifyToken } = require('../utils/totp');
 const AuditLogger = require('../utils/auditLogger');
 const { mockStore, pool, isPostgresConnected } = require('../config/db');
 const { sendWelcomeWithReferralCode } = require('../services/emailService');
@@ -159,7 +158,7 @@ class AuthController {
 
   static async login(req, res, next) {
     try {
-      const { email, password, totp_code } = req.body;
+      const { email, password } = req.body;
 
       const lockResult = await isAccountLocked(email);
       if (lockResult) {
@@ -177,10 +176,6 @@ class AuthController {
       if (user.status === 'suspended') {
         await AuditLogger.log(user.id, 'auth.login.failure.suspended', req, { email });
         return res.status(403).json({ success: false, message: 'Account is suspended. Please contact support.' });
-      }
-
-      if (user.role === 'admin' && !user.two_factor_enabled) {
-        return res.status(403).json({ success: false, message: 'Admin accounts require Two-Factor Authentication. Please enable 2FA in Security settings before logging in.' });
       }
 
       const isMatch = await comparePassword(password, user.password_hash);
@@ -340,74 +335,6 @@ class AuthController {
     }
   }
 
-  static async setup2FA(req, res, next) {
-    try {
-      const secret = generateSecret(req.user.email);
-      const qrCodeUrl = await generateQRCode(secret.otpauth_url);
-
-      await AuditLogger.log(req.user.id, 'auth.2fa.setup_initiated', req);
-
-      res.json({
-        success: true,
-        data: {
-          secret: secret.base32,
-          qrCodeUrl
-        }
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async verify2FA(req, res, next) {
-    try {
-      const { secret, token } = req.body;
-      const isValid = verifyToken(secret, token);
-
-      if (!isValid) {
-        await AuditLogger.log(req.user.id, 'auth.2fa.verification_failed', req);
-        return res.status(400).json({ success: false, message: 'Invalid 2FA authentication token.' });
-      }
-
-      await UserModel.update2FASecret(req.user.id, secret, true);
-      await AuditLogger.log(req.user.id, 'auth.2fa.enabled', req);
-
-      res.json({
-        success: true,
-        message: 'Two-Factor Authentication enabled successfully!'
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  static async disable2FA(req, res, next) {
-    try {
-      const { token } = req.body;
-      const user = await UserModel.findByIdWithPassword(req.user.id);
-
-      if (!user.two_factor_enabled) {
-        return res.status(400).json({ success: false, message: '2FA is not enabled.' });
-      }
-
-      const isValid = verifyToken(user.two_factor_secret, token);
-      if (!isValid) {
-        await AuditLogger.log(req.user.id, 'auth.2fa.disable_failed', req);
-        return res.status(400).json({ success: false, message: 'Invalid 2FA code.' });
-      }
-
-      await UserModel.update2FASecret(req.user.id, null, false);
-      await AuditLogger.log(req.user.id, 'auth.2fa.disabled', req);
-
-      res.json({
-        success: true,
-        message: 'Two-Factor Authentication disabled successfully.'
-      });
-    } catch (err) {
-      next(err);
-    }
-  }
-
   static async forgotPassword(req, res, next) {
     try {
       const { email } = req.body;
@@ -431,11 +358,90 @@ class AuthController {
         return res.status(400).json({ success: false, message: 'Verification details missing.' });
       }
 
-      await AuditLogger.log(parseInt(userId), 'auth.email_verified', req);
+      const user = await UserModel.findById(userId);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found.' });
+      }
 
+      if (user.is_email_verified) {
+        return res.json({ success: true, message: 'Email address is already verified.' });
+      }
+
+      let valid = false;
+      if (isPostgresConnected() && pool) {
+        const result = await pool.query(
+          `SELECT * FROM email_verification_tokens WHERE user_id = $1 AND token = $2 AND expires_at > NOW() LIMIT 1`,
+          [userId, code]
+        );
+        valid = result.rows.length > 0;
+        if (valid) {
+          await pool.query('UPDATE users SET is_email_verified = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
+          await pool.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
+        }
+      } else {
+        const token = mockStore.email_verification_tokens?.find(t => t.user_id === userId && t.token === code && new Date(t.expires_at) > new Date());
+        if (token) {
+          const u = mockStore.users.find(u => u.id === userId);
+          if (u) u.is_email_verified = true;
+          mockStore.email_verification_tokens = mockStore.email_verification_tokens.filter(t => t.user_id !== userId);
+          valid = true;
+        }
+      }
+
+      if (!valid) {
+        await AuditLogger.log(userId, 'auth.email_verification_failed', req);
+        return res.status(400).json({ success: false, message: 'Invalid or expired verification code.' });
+      }
+
+      await AuditLogger.log(userId, 'auth.email_verified', req);
       res.json({
         success: true,
         message: 'Email address verified successfully!'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async requestEmailVerification(req, res, next) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ success: false, message: 'Email address is required.' });
+      }
+
+      const user = await UserModel.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'No account found with this email.' });
+      }
+
+      if (user.is_email_verified) {
+        return res.json({ success: true, message: 'Email is already verified.' });
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+      if (isPostgresConnected() && pool) {
+        await pool.query(
+          `INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+          [user.id, code, expiresAt]
+        );
+      } else {
+        mockStore.email_verification_tokens = mockStore.email_verification_tokens || [];
+        mockStore.email_verification_tokens.push({ user_id: user.id, token: code, expires_at: expiresAt.toISOString() });
+      }
+
+      const emailService = require('../services/emailService');
+      await emailService.sendEmail({
+        to: email,
+        subject: 'Verify Your Email - KashWave',
+        html: `<p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 15 minutes.</p>`
+      });
+
+      res.json({
+        success: true,
+        message: 'Verification code sent to your email.'
       });
     } catch (err) {
       next(err);

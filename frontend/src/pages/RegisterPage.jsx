@@ -115,12 +115,12 @@ const RegisterPage = () => {
 
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: FiDollarSign, val: 'UGX 148M+', label: 'Managed' },
-              { icon: FiBarChart2, val: '5% Daily', label: 'ROI Rate' },
-              { icon: FiShield, val: '2FA', label: 'Security' },
-              { icon: FiCheckCircle, val: 'Free', label: 'Setup Fee' },
-            ].map((item, i) => (
+             {[
+               { icon: FiDollarSign, val: 'UGX 148M+', label: 'Managed' },
+               { icon: FiBarChart2, val: '5% Daily', label: 'ROI Rate' },
+               { icon: FiShield, val: 'Email Verify', label: 'Security' },
+               { icon: FiCheckCircle, val: 'Free', label: 'Setup Fee' },
+             ].map((item, i) => (
               <div key={i} className="bg-white/8 border border-white/10 rounded-2xl p-3.5 text-center">
                 <item.icon className="w-5 h-5 text-[#D4AF37] mx-auto mb-1" />
                 <p className="text-base font-extrabold text-white">{item.val}</p>

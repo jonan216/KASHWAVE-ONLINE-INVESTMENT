@@ -39,29 +39,6 @@ router.get('/me', authenticateToken, AuthController.getMe);
 
 router.get('/referrals', authenticateToken, AuthController.getReferrals);
 
-router.post('/2fa/setup', authenticateToken, AuthController.setup2FA);
-
-router.post(
-  '/2fa/verify',
-  [
-    authenticateToken,
-    body('secret').trim().notEmpty().withMessage('Secret is required'),
-    body('token').trim().isLength({ min: 6, max: 6 }).withMessage('6-digit 2FA token required'),
-    validate
-  ],
-  AuthController.verify2FA
-);
-
-router.post(
-  '/2fa/disable',
-  [
-    authenticateToken,
-    body('token').trim().isLength({ min: 6, max: 6 }).withMessage('6-digit 2FA token required'),
-    validate
-  ],
-  AuthController.disable2FA
-);
-
 router.post(
   '/forgot-password',
   [
@@ -70,6 +47,8 @@ router.post(
   ],
   AuthController.forgotPassword
 );
+
+router.post('/request-email-verification', AuthController.requestEmailVerification);
 
 router.post('/verify-email', AuthController.verifyEmail);
 

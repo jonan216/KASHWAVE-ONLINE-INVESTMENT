@@ -31,11 +31,8 @@ export const AuthProvider = ({ children }) => {
     fetchUser();
   }, []);
 
-  const login = async (email, password, totpCode = null) => {
-    const res = await api.post('/auth/login', { email, password, totp_code: totpCode });
-    if (res.data.requires2FA) {
-      return { requires2FA: true };
-    }
+  const login = async (email, password) => {
+    const res = await api.post('/auth/login', { email, password });
     if (res.data.success) {
       const { accessToken, refreshToken, user: userData, wallet: walletData, welcome_bonus, csrfToken } = res.data.data;
       localStorage.setItem('kashwave_access_token', accessToken);

@@ -5,19 +5,22 @@ import { useNotification } from '../context/NotificationContext';
 import api from '../services/api';
 import {
   FiShield, FiLock, FiCheckCircle, FiAlertTriangle,
-  FiActivity, FiSmartphone, FiKey, FiSave
+  FiActivity, FiSmartphone, FiKey, FiSave, FiMail
 } from 'react-icons/fi';
 
 const SecurityPage = () => {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [passwords, setPasswords] = useState({ current: '', new_: '', confirm: '' });
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (passwords.new_ !== passwords.confirm) return showError("New passwords don't match.");
-    if (passwords.new_.length < 6) return showError("Password must be at least 6 characters.");
+    if (passwords.new_.length < 6) return showError('Password must be at least 6 characters.');
     setSaving(true);
     try {
       const res = await api.put('/auth/change-password', {
@@ -33,6 +36,38 @@ const SecurityPage = () => {
     } finally { setSaving(false); }
   };
 
+  const handleRequestVerification = async (e) => {
+    e.preventDefault();
+    if (!verifyEmail) return showError('Please enter your email address.');
+    setVerifying(true);
+    try {
+      const res = await api.post('/auth/request-email-verification', { email: verifyEmail });
+      if (res.data.success) {
+        showSuccess('Verification code sent! Check your email.');
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to send verification code.');
+    } finally { setVerifying(false); }
+  };
+
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
+    if (!verifyCode || !verifyEmail) return showError('Please enter the verification code.');
+    setVerifying(true);
+    try {
+      const userForId = await api.get('/auth/me');
+      const userId = userForId.data.data.user.id;
+      const res = await api.post('/auth/verify-email', { code: verifyCode, userId });
+      if (res.data.success) {
+        showSuccess('Email verified successfully!');
+        setVerifyCode('');
+        refreshProfile();
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Verification failed.');
+    } finally { setVerifying(false); }
+  };
+
   const securityItems = [
     {
       icon: FiCheckCircle,
@@ -40,13 +75,6 @@ const SecurityPage = () => {
       label: 'Email Verification',
       status: user?.is_email_verified ? 'Verified' : 'Not Verified',
       statusColor: user?.is_email_verified ? 'text-[#16A34A]' : 'text-[#F59E0B]',
-    },
-    {
-      icon: FiShield,
-      color: user?.is_2fa_enabled ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'bg-[#F59E0B]/10 text-[#F59E0B]',
-      label: 'Two-Factor Auth (2FA)',
-      status: user?.is_2fa_enabled ? 'Enabled' : 'Disabled',
-      statusColor: user?.is_2fa_enabled ? 'text-[#16A34A]' : 'text-[#F59E0B]',
     },
     {
       icon: FiLock,
@@ -98,6 +126,65 @@ const SecurityPage = () => {
         ))}
       </div>
 
+      {/* Email Verification */}
+      {!user?.is_email_verified && (
+        <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden">
+          <div className="h-1.5 gradient-gold" />
+          <div className="p-6 sm:p-8 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center">
+                <FiMail className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-[#102542]">Verify Your Email</h3>
+                <p className="text-[10px] text-[#102542]/60 font-medium">Enter your email to receive a verification code.</p>
+              </div>
+            </div>
+            <form onSubmit={handleRequestVerification} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-1.5">Email Address</label>
+                <input
+                  type="email"
+                  value={verifyEmail}
+                  onChange={e => setVerifyEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full px-4 py-3.5 bg-[#F8F4E8] border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={verifying}
+                className="w-full py-3.5 rounded-2xl gradient-navy text-[#F8F4E8] font-extrabold text-sm hover:shadow-glow-navy transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {verifying ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiMail className="w-4 h-4 text-[#D4AF37]" />}
+                {verifying ? 'Sending...' : 'Send Verification Code'}
+              </button>
+            </form>
+
+            <form onSubmit={handleVerifyEmail} className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-[#102542]/70 uppercase tracking-widest mb-1.5">Verification Code</label>
+                <input
+                  type="text"
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value)}
+                  placeholder="Enter 6-digit code"
+                  className="w-full px-4 py-3.5 bg-[#F8F4E8] border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={verifying}
+                className="w-full py-3.5 rounded-2xl gradient-navy text-[#F8F4E8] font-extrabold text-sm hover:shadow-glow-navy transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {verifying ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FiCheckCircle className="w-4 h-4 text-[#D4AF37]" />}
+                {verifying ? 'Verifying...' : 'Verify Email'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Change Password */}
       <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden">
         <div className="h-1.5 gradient-gold" />
@@ -142,40 +229,6 @@ const SecurityPage = () => {
               {saving ? 'Updating...' : 'Update Password'}
             </button>
           </form>
-        </div>
-      </div>
-
-      {/* Two-Factor Authentication */}
-      <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden">
-        <div className="h-1.5 gradient-navy" />
-        <div className="p-6 sm:p-8 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37] flex items-center justify-center">
-              <FiSmartphone className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-[#102542]">Two-Factor Authentication</h3>
-              <p className="text-[10px] text-[#102542]/60 font-medium">TOTP via Google Authenticator or Authy</p>
-            </div>
-          </div>
-          <div className={`flex items-center justify-between p-4 rounded-2xl border ${user?.is_2fa_enabled ? 'bg-[#16A34A]/5 border-[#16A34A]/20' : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'}`}>
-            <div className="flex items-center gap-2.5">
-              <div className={`w-3 h-3 rounded-full ${user?.is_2fa_enabled ? 'bg-[#16A34A]' : 'bg-[#F59E0B]'}`} />
-              <p className="text-xs font-bold text-[#102542]">
-                2FA is currently <strong className={user?.is_2fa_enabled ? 'text-[#16A34A]' : 'text-[#F59E0B]'}>
-                  {user?.is_2fa_enabled ? 'ENABLED' : 'DISABLED'}
-                </strong>
-              </p>
-            </div>
-            {user?.is_2fa_enabled && <FiCheckCircle className="w-5 h-5 text-[#16A34A]" />}
-          </div>
-          <button
-            onClick={() => showSuccess('Navigate to /dashboard/profile to enable 2FA.')}
-            className="w-full py-3.5 rounded-2xl gradient-navy text-[#F8F4E8] font-extrabold text-sm hover:shadow-glow-navy transition-all flex items-center justify-center gap-2"
-          >
-            <FiShield className="w-4 h-4 text-[#D4AF37]" />
-            {user?.is_2fa_enabled ? 'Manage 2FA Settings' : 'Enable 2FA Now'}
-          </button>
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import {
-  FiTrendingUp, FiLock, FiMail, FiShield, FiArrowRight,
+  FiTrendingUp, FiLock, FiMail, FiArrowRight,
   FiCheckCircle, FiEye, FiEyeOff
 } from 'react-icons/fi';
 
@@ -11,8 +11,6 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [totpCode, setTotpCode] = useState('');
-  const [requires2FA, setRequires2FA] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
@@ -23,11 +21,8 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await login(email, password, requires2FA ? totpCode : null);
-      if (res?.requires2FA) {
-        setRequires2FA(true);
-        showSuccess('Enter your 6-digit authenticator code to continue.');
-      } else if (res?.success) {
+      const res = await login(email, password);
+      if (res?.success) {
         showSuccess('Welcome back! Redirecting to your dashboard...');
         navigate(res.data?.user?.role === 'admin' ? '/admin' : '/dashboard');
       }
@@ -70,12 +65,12 @@ const LoginPage = () => {
 
           {/* Feature checklist */}
           <ul className="space-y-3">
-            {[
-              'Daily automated ROI credited 24/7',
-              'Real-time portfolio valuation tracking',
-              'Instant deposit & withdrawal processing',
-              'Bank-grade security & 2FA protection'
-            ].map((item, i) => (
+          {[
+            'Daily automated ROI credited 24/7',
+            'Real-time portfolio valuation tracking',
+            'Instant deposit & withdrawal processing',
+            'Bank-grade security & email verification'
+          ].map((item, i) => (
               <li key={i} className="flex items-center gap-3 text-sm text-[#F8F4E8]/80 font-medium">
                 <div className="w-5 h-5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] flex items-center justify-center shrink-0">
                   <FiCheckCircle className="w-3.5 h-3.5" />
@@ -116,86 +111,65 @@ const LoginPage = () => {
         </div>
 
         <div className="max-w-md w-full mx-auto">
-          <div className="mb-7">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102542]">
-              {requires2FA ? 'Two-Factor Verification' : 'Sign In to Your Account'}
-            </h1>
-            <p className="text-xs text-[#102542]/60 font-medium mt-1">
-              {requires2FA
-                ? 'Enter the 6-digit code from your authenticator app.'
-                : 'Access your investment portfolio and earnings dashboard.'}
-            </p>
-           </div>
+            <div className="mb-7">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#102542]">
+                Sign In to Your Account
+              </h1>
+              <p className="text-xs text-[#102542]/60 font-medium mt-1">
+                Access your investment portfolio and earnings dashboard.
+              </p>
+            </div>
 
-           <form onSubmit={handleLogin} className="space-y-4">
-            {!requires2FA ? (
-              <>
-                {/* Email */}
-                <div>
-                  <label className="block text-[10px] font-bold text-[#102542]/70 uppercase tracking-widest mb-1.5">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <FiMail className="w-4 h-4 text-[#102542]/40" />
-                    </div>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-11 pr-4 py-3.5 bg-white border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-[10px] font-bold text-[#102542]/70 uppercase tracking-widest">
-                      Password
-                    </label>
-                    <a href="#" className="text-[10px] text-[#D4AF37] font-bold hover:underline">Forgot Password?</a>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <FiLock className="w-4 h-4 text-[#102542]/40" />
-                    </div>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-11 pr-12 py-3.5 bg-white border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#102542]/40 hover:text-[#102542] transition-colors"
-                    >
-                      {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
+            <form onSubmit={handleLogin} className="space-y-4">
+              {/* Email */}
               <div>
-                <label className="block text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <FiShield className="w-3.5 h-3.5" /> Authenticator Code
+                <label className="block text-[10px] font-bold text-[#102542]/70 uppercase tracking-widest mb-1.5">
+                  Email Address
                 </label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  value={totpCode}
-                  onChange={e => setTotpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  className="w-full px-4 py-4 bg-white border-2 border-[#D4AF37] rounded-2xl text-center text-2xl font-black tracking-[0.5em] text-[#102542] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20"
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <FiMail className="w-4 h-4 text-[#102542]/40" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full pl-11 pr-4 py-3.5 bg-white border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
+                  />
+                </div>
               </div>
-            )}
+
+              {/* Password */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-[10px] font-bold text-[#102542]/70 uppercase tracking-widest">
+                    Password
+                  </label>
+                  <a href="#" className="text-[10px] text-[#D4AF37] font-bold hover:underline">Forgot Password?</a>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <FiLock className="w-4 h-4 text-[#102542]/40" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-11 pr-12 py-3.5 bg-white border border-[#102542]/12 rounded-2xl text-sm text-[#102542] placeholder-[#102542]/30 focus:outline-none focus:border-[#D4AF37] focus:ring-2 focus:ring-[#D4AF37]/15 transition-all font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#102542]/40 hover:text-[#102542] transition-colors"
+                  >
+                    {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
             <button
               type="submit"
@@ -205,11 +179,11 @@ const LoginPage = () => {
               {loading ? (
                 <span className="inline-flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Authenticating...
+                  Signing in...
                 </span>
               ) : (
                 <>
-                  {requires2FA ? 'Verify Code' : 'Sign In to Portal'} <FiArrowRight className="text-[#D4AF37]" />
+                  Sign In to Portal <FiArrowRight className="text-[#D4AF37]" />
                 </>
               )}
             </button>
