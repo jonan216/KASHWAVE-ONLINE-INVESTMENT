@@ -10,9 +10,9 @@ import {
 } from 'react-icons/fi';
 
 const PAYMENT_METHODS = [
-  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'marz_innovations', method: 'mtn', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Deposit via Marz Innovations - MTN', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 0770XXXXXX or 0700XXXXXX', inputType: 'tel' },
-  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'marz_innovations', method: 'airtel', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Deposit via Marz Innovations - Airtel', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 0770XXXXXX or 0700XXXXXX', inputType: 'tel' },
-  { id: 'M-Pesa',          label: 'M-Pesa',           type: 'marz_innovations', method: 'mpesa', icon: FiSmartphone, badge: 'Kenya', accent: '#4CAF50', desc: 'Deposit via Marz Innovations - M-Pesa', inputLabel: 'Phone Number', inputPlaceholder: 'e.g. 07XXXXXXXX', inputType: 'tel' },
+  { id: 'MTN Mobile Money', label: 'MTN Mobile Money', type: 'marz_innovations', method: 'mtn', icon: FiSmartphone, badge: 'Popular in UG', accent: '#FFCC00', desc: 'Deposit via Marz Innovations - MTN', inputLabel: 'Phone Number (256xxxxxxxxx)', inputPlaceholder: 'e.g. 256770XXXXXX or 256780XXXXXX', inputType: 'tel' },
+  { id: 'Airtel Money',     label: 'Airtel Money',     type: 'marz_innovations', method: 'airtel', icon: FiSmartphone, badge: 'Instant Payout', accent: '#E8002D', desc: 'Deposit via Marz Innovations - Airtel', inputLabel: 'Phone Number (256xxxxxxxxx)', inputPlaceholder: 'e.g. 256700XXXXXX or 256750XXXXXX', inputType: 'tel' },
+  { id: 'M-Pesa',          label: 'M-Pesa',           type: 'marz_innovations', method: 'mpesa', icon: FiSmartphone, badge: 'Kenya', accent: '#4CAF50', desc: 'Deposit via Marz Innovations - M-Pesa', inputLabel: 'Phone Number (254xxxxxxxxx)', inputPlaceholder: 'e.g. 2547XXXXXXXX', inputType: 'tel' },
   { id: 'Visa Card',        label: 'Visa Card',        type: 'card', icon: FiCreditCard, badge: 'International', accent: '#1A1F71', desc: 'Debit / Credit card checkout', inputLabel: 'Card Number', inputPlaceholder: 'e.g. 4111XXXXXXXXXX', inputType: 'text' },
   { id: 'MasterCard',       label: 'MasterCard',       type: 'card', icon: FiCreditCard, badge: 'International', accent: '#EB001B', desc: 'Debit / Credit card checkout', inputLabel: 'Card Number', inputPlaceholder: 'e.g. 5555XXXXXXXXXX', inputType: 'text' }
 ];
