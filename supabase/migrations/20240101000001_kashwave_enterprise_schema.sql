@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     provider VARCHAR(50) NOT NULL DEFAULT 'manual'
-        CHECK (provider IN ('mtn_momo', 'airtel_money', 'visa', 'mastercard', 'bank_transfer', 'manual', 'usdt')),
+        CHECK (provider IN ('mtn_momo', 'airtel_money', 'visa', 'mastercard', 'bank_transfer', 'manual', 'usdt', 'marz_innovations')),
     reference_number VARCHAR(255) UNIQUE NOT NULL,
     internal_reference VARCHAR(60) UNIQUE NOT NULL, -- KashWave reference code
     amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),

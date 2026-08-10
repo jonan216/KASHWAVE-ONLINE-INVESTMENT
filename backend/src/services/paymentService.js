@@ -37,26 +37,31 @@ const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider
     amount, currency, reference: internalRef, phone: phone || null, method
   });
 
+  // Normalize provider value to match DB CHECK constraint
+  // payment_transactions.provider must be one of the accepted enum values
+  const VALID_DB_PROVIDERS = ['mtn_momo', 'airtel_money', 'visa', 'mastercard', 'bank_transfer', 'manual', 'usdt', 'marz_innovations'];
+  const dbProvider = VALID_DB_PROVIDERS.includes(provider) ? provider : 'marz_innovations';
+
   if (isPostgresConnected() && pool) {
     if (pool.constructor.name === 'HttpPool') {
       await pool.query(
         `INSERT INTO payment_transactions
            (user_id, provider, reference_number, internal_reference, amount, currency, direction, status)
          VALUES ($1,$2,$3,$4,$5,$6,$7,'pending')`,
-        [userId, provider, providerRef, internalRef, amount, currency, direction]
+        [userId, dbProvider, providerRef, internalRef, amount, currency, direction]
       );
       const result = await pool.query(
         `SELECT * FROM payment_transactions WHERE internal_reference = $1 ORDER BY id DESC LIMIT 1`,
         [internalRef]
       );
-      return { ...result.rows[0], providerResponse: providerResult };
+      return { ...result.rows[0], internal_reference: internalRef, providerResponse: providerResult };
     }
     const result = await pool.query(
       `INSERT INTO payment_transactions
          (user_id, provider, reference_number, internal_reference, amount, currency, direction, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'pending')
        RETURNING *`,
-      [userId, provider, providerRef, internalRef, amount, currency, direction]
+      [userId, dbProvider, providerRef, internalRef, amount, currency, direction]
     );
     return { ...result.rows[0], providerResponse: providerResult };
   }
