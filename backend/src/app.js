@@ -158,7 +158,7 @@ app.get('/api/dbtest', async (req, res) => {
   }
 });
 
-app.get(['/api/marzpay/health', '/marzpay/health'], async (req, res) => {
+app.get('/api/marztest', async (req, res) => {
   try {
     const { testConnection } = require('./services/providers/marzInnovationsProvider');
     const env = require('./config/env');
