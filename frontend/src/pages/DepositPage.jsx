@@ -47,6 +47,7 @@ const DepositPage = () => {
         amount: numAmount,
         payment_method: selectedMethod.label,
         payment_provider: selectedMethod.type,
+        method: selectedMethod.method,
         proof_reference: generatedRef,
         source_account: sourceAccount
       });

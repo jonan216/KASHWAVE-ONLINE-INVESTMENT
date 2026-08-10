@@ -24,7 +24,7 @@ const generateReference = (prefix = 'KW-PAY') =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 // ─── Create Payment Request ─────────────────────────────────────────────────
-const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider = 'manual', direction = 'inbound', phone }) => {
+const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider = 'manual', direction = 'inbound', phone, method }) => {
   const internalRef = generateReference('KW-DEP');
   const providerRef = `EXT-${Date.now()}`;
   const providerInstance = providers[provider];
@@ -34,7 +34,7 @@ const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider
   }
 
   const providerResult = await providerInstance.initPayment({
-    amount, currency, reference: internalRef, phone: phone || null
+    amount, currency, reference: internalRef, phone: phone || null, method
   });
 
   if (isPostgresConnected() && pool) {

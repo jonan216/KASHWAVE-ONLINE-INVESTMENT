@@ -100,11 +100,19 @@ const request = (path, method = 'GET', body = null) => {
   });
 };
 
+// Auto-detect telecom network from Ugandan phone prefix (077/078/076 -> mtn, 070/075/074 -> airtel)
+const detectNetwork = (phone, fallbackMethod = 'mtn') => {
+  const cleaned = formatPhoneUG(phone);
+  if (/^256(70|75|74)/.test(cleaned)) return 'airtel';
+  if (/^256(77|78|76|39)/.test(cleaned)) return 'mtn';
+  return String(fallbackMethod || 'mtn').toLowerCase();
+};
+
 const initiateDeposit = async ({ amount, phone, method = 'mtn', reference: externalRef, currency = 'UGX' }) => {
   // Use the reference passed from paymentService so the webhook can match the DB record.
   const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
   const formattedPhone = formatPhoneUG(phone);
-  const networkName = String(method || 'mtn').toLowerCase();
+  const networkName = detectNetwork(phone, method);
 
   console.log(`[MARZ INITIATE DEPOSIT] phone=${formattedPhone} amount=${amount} ref=${reference} network=${networkName}`);
 

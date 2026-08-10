@@ -14,8 +14,9 @@ class TransactionController {
 
   static async createDeposit(req, res, next) {
     try {
-      const { amount, payment_method, proof_reference, payment_provider, source_account } = req.body;
+      const { amount, payment_method, proof_reference, payment_provider, source_account, method } = req.body;
       const numAmount = parseFloat(amount);
+      const networkMethod = method || (String(payment_method || '').toLowerCase().includes('airtel') ? 'airtel' : 'mtn');
 
       if (!numAmount || isNaN(numAmount) || numAmount < 10) {
         return res.status(400).json({ success: false, message: 'Minimum deposit amount is UGX 10.' });
@@ -36,7 +37,8 @@ class TransactionController {
             amount: numAmount,
             provider: 'marz_innovations',
             currency: 'UGX',
-            phone: source_account
+            phone: source_account,
+            method: networkMethod
           });
           paymentResult = payment?.providerResponse || null;
           internalRef = payment?.internal_reference || internalRef;
