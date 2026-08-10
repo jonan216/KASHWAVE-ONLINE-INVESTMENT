@@ -10,6 +10,7 @@ const { sendWelcomeWithReferralCode } = require('../services/emailService');
 const { creditReferralBonus } = require('../services/referralService');
 const { recordFailedLogin, clearFailedLogins, isAccountLocked } = require('../middleware/accountLockout');
 const { generateCsrfToken } = require('../middleware/csrfProtection');
+const { processROIPayouts } = require('../services/roiEngine');
 const env = require('../config/env');
 
 class AuthController {
@@ -304,6 +305,7 @@ class AuthController {
 
   static async getMe(req, res, next) {
     try {
+      try { await processROIPayouts(); } catch (_) {}
       const user = await UserModel.findById(req.user.id);
       const wallet = await WalletModel.getByUserId(req.user.id);
 
