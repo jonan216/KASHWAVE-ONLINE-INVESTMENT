@@ -15,14 +15,14 @@ const basicAuth = MARZ_API_KEY && MARZ_API_SECRET
   ? Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64')
   : null;
 
-// E.164 Ugandan Phone Format Helper (e.g. 0770123456 -> +256770123456)
+// Ugandan Phone Format Helper: Digits-only 256XXXXXXXXX format (e.g. 0770123456 -> 256770123456)
 const formatPhoneUG = (phone) => {
   if (!phone) return '';
   let cleaned = String(phone).replace(/\D/g, '');
-  if (cleaned.startsWith('256')) return '+' + cleaned;
-  if (cleaned.startsWith('0')) return '+256' + cleaned.slice(1);
-  if (cleaned.length === 9) return '+256' + cleaned;
-  return '+' + cleaned;
+  if (cleaned.startsWith('256')) return cleaned;
+  if (cleaned.startsWith('0')) return '256' + cleaned.slice(1);
+  if (cleaned.length === 9) return '256' + cleaned;
+  return cleaned;
 };
 
 const request = (path, method = 'GET', body = null) => {
@@ -104,16 +104,24 @@ const initiateDeposit = async ({ amount, phone, method = 'mtn', reference: exter
   // Use the reference passed from paymentService so the webhook can match the DB record.
   const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
   const formattedPhone = formatPhoneUG(phone);
+  const networkName = String(method || 'mtn').toLowerCase();
 
-  console.log(`[MARZ INITIATE DEPOSIT] phone=${formattedPhone} amount=${amount} ref=${reference}`);
+  console.log(`[MARZ INITIATE DEPOSIT] phone=${formattedPhone} amount=${amount} ref=${reference} network=${networkName}`);
 
   try {
     const response = await request('/collect-money', 'POST', {
       amount: Number(amount),
       currency,
       reference,
+      external_reference: reference,
       country: 'UG',
       phone_number: formattedPhone,
+      phone: formattedPhone,
+      msisdn: formattedPhone,
+      account_number: formattedPhone,
+      network: networkName,
+      provider: networkName,
+      payment_method: networkName,
       description: `KashWave deposit from ${formattedPhone}`,
       callback_url: env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'
     });
