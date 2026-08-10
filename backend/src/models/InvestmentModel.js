@@ -11,18 +11,32 @@ class InvestmentModel {
          ORDER BY ui.created_at DESC`,
         [userId]
       );
-      return res.rows;
+      return res.rows.map(inv => {
+        const startDate = new Date(inv.start_date || inv.created_at);
+        const lastPayout = inv.last_payout_at ? new Date(inv.last_payout_at) : startDate;
+        const nextPayout = new Date(lastPayout.getTime() + 24 * 60 * 60 * 1000);
+        return {
+          ...inv,
+          start_date: startDate.toISOString(),
+          next_payout_at: nextPayout.toISOString()
+        };
+      });
     } else {
-      return mockStore.investments
+      return (mockStore.investments || [])
         .filter(inv => inv.user_id === parseInt(userId))
         .map(inv => {
-          const plan = mockStore.plans.find(p => p.id === inv.plan_id) || {};
+          const plan = (mockStore.plans || []).find(p => p.id === inv.plan_id) || {};
+          const startDate = new Date(inv.start_date || inv.created_at || Date.now());
+          const lastPayout = inv.last_payout_at ? new Date(inv.last_payout_at) : startDate;
+          const nextPayout = new Date(lastPayout.getTime() + 24 * 60 * 60 * 1000);
           return {
             ...inv,
             plan_title: plan.title,
             daily_return_percent: plan.daily_return_percent,
             duration_days: plan.duration_days,
-            risk_level: plan.risk_level
+            risk_level: plan.risk_level,
+            start_date: startDate.toISOString(),
+            next_payout_at: nextPayout.toISOString()
           };
         });
     }
@@ -40,7 +54,7 @@ class InvestmentModel {
       );
       return res.rows[0];
     } else {
-      const newId = mockStore.investments.length ? Math.max(...mockStore.investments.map(i => i.id)) + 1 : 101;
+      const newId = (mockStore.investments || []).length ? Math.max(...mockStore.investments.map(i => i.id)) + 1 : 101;
       const inv = {
         id: newId,
         user_id: parseInt(userId),
@@ -53,6 +67,7 @@ class InvestmentModel {
         end_date: endDate.toISOString(),
         created_at: startDate.toISOString()
       };
+      mockStore.investments = mockStore.investments || [];
       mockStore.investments.push(inv);
       return inv;
     }
@@ -67,16 +82,30 @@ class InvestmentModel {
          JOIN investment_plans ip ON ui.plan_id = ip.id
          ORDER BY ui.created_at DESC`
       );
-      return res.rows;
+      return res.rows.map(inv => {
+        const startDate = new Date(inv.start_date || inv.created_at);
+        const lastPayout = inv.last_payout_at ? new Date(inv.last_payout_at) : startDate;
+        const nextPayout = new Date(lastPayout.getTime() + 24 * 60 * 60 * 1000);
+        return {
+          ...inv,
+          start_date: startDate.toISOString(),
+          next_payout_at: nextPayout.toISOString()
+        };
+      });
     } else {
-      return mockStore.investments.map(inv => {
-        const user = mockStore.users.find(u => u.id === inv.user_id) || {};
-        const plan = mockStore.plans.find(p => p.id === inv.plan_id) || {};
+      return (mockStore.investments || []).map(inv => {
+        const user = (mockStore.users || []).find(u => u.id === inv.user_id) || {};
+        const plan = (mockStore.plans || []).find(p => p.id === inv.plan_id) || {};
+        const startDate = new Date(inv.start_date || inv.created_at || Date.now());
+        const lastPayout = inv.last_payout_at ? new Date(inv.last_payout_at) : startDate;
+        const nextPayout = new Date(lastPayout.getTime() + 24 * 60 * 60 * 1000);
         return {
           ...inv,
           full_name: user.full_name,
           email: user.email,
-          plan_title: plan.title
+          plan_title: plan.title,
+          start_date: startDate.toISOString(),
+          next_payout_at: nextPayout.toISOString()
         };
       });
     }
