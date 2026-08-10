@@ -100,24 +100,30 @@ const request = (path, method = 'GET', body = null) => {
   });
 };
 
-const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+const initiateDeposit = async ({ amount, phone, method = 'mtn', reference: externalRef, currency = 'UGX' }) => {
+  // Use the reference passed from paymentService so the webhook can match the DB record.
+  const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
   const formattedPhone = formatPhoneUG(phone);
+
+  console.log(`[MARZ INITIATE DEPOSIT] phone=${formattedPhone} amount=${amount} ref=${reference}`);
 
   try {
     const response = await request('/collect-money', 'POST', {
       amount: Number(amount),
-      currency: 'UGX',
+      currency,
       reference,
       country: 'UG',
       phone_number: formattedPhone,
       description: `KashWave deposit from ${formattedPhone}`,
-      callback_url: `${env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'}`
+      callback_url: env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'
     });
+
+    const resolvedRef = response.data?.collection?.reference || response.reference || reference;
+    console.log(`[MARZ DEPOSIT INITIATED] ref=${resolvedRef} status=${response.data?.collection?.status || response.status}`);
 
     return {
       provider: 'marz_innovations',
-      reference: response.data?.collection?.reference || response.reference || reference,
+      reference: resolvedRef,
       transaction_id: response.data?.collection?.id || response.data?.collection?.provider_transaction_id || response.id || `TX-${Date.now()}`,
       status: response.data?.collection?.status || response.status || 'pending',
       message: response.data?.collection?.message || response.message || 'Payment request sent. Please check your phone for PIN prompt.',
@@ -155,18 +161,20 @@ const verifyPayment = async (reference) => {
   }
 };
 
-const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+const initiateWithdrawal = async ({ amount, phone, method = 'mtn', reference: externalRef, currency = 'UGX' }) => {
+  const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
   const formattedPhone = formatPhoneUG(phone);
+
+  console.log(`[MARZ INITIATE WITHDRAWAL] phone=${formattedPhone} amount=${amount} ref=${reference}`);
 
   const response = await request('/send-money', 'POST', {
     amount: Number(amount),
-    currency: 'UGX',
+    currency,
     reference,
     country: 'UG',
     phone_number: formattedPhone,
     description: `KashWave withdrawal to ${formattedPhone}`,
-    callback_url: `${env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'}`
+    callback_url: env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'
   });
 
   return {
@@ -179,10 +187,26 @@ const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
   };
 };
 
+// ─── Test connectivity to MarzPay API ───────────────────────────────────────
+const testConnection = async () => {
+  if (!MARZ_API_KEY || !MARZ_API_SECRET) {
+    return { connected: false, reason: 'MarzPay credentials not configured (MARZ_INNOVATIONS_API_KEY / MARZ_INNOVATIONS_API_SECRET missing from environment variables)' };
+  }
+  try {
+    const response = await request('/transactions', 'GET');
+    console.log('[MARZ TEST CONNECTION] Success:', JSON.stringify(response).slice(0, 200));
+    return { connected: true, response };
+  } catch (err) {
+    console.error('[MARZ TEST CONNECTION] Failed:', err.message);
+    return { connected: false, reason: err.message };
+  }
+};
+
 const initPayment = initiateDeposit;
 
 module.exports = {
   formatPhoneUG,
+  testConnection,
   initPayment,
   verifyPayment,
   initiateDeposit,
