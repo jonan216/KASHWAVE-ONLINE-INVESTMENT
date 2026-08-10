@@ -1,10 +1,12 @@
 const UserModel = require('../models/UserModel');
 const WalletModel = require('../models/WalletModel');
+const { processROIPayouts } = require('../services/roiEngine');
 const { hashPassword, comparePassword } = require('../utils/hash');
 
 class UserController {
   static async getProfile(req, res, next) {
     try {
+      try { await processROIPayouts(); } catch (_) {}
       const user = await UserModel.findById(req.user.id);
       const wallet = await WalletModel.getByUserId(req.user.id);
       res.json({ success: true, data: { user, wallet } });

@@ -2,6 +2,7 @@ const PlanModel = require('../models/PlanModel');
 const InvestmentModel = require('../models/InvestmentModel');
 const WalletModel = require('../models/WalletModel');
 const TransactionModel = require('../models/TransactionModel');
+const { processROIPayouts } = require('../services/roiEngine');
 
 class InvestmentController {
   static async getPlans(req, res, next) {
@@ -15,6 +16,7 @@ class InvestmentController {
 
   static async getUserInvestments(req, res, next) {
     try {
+      try { await processROIPayouts(); } catch (_) {}
       const investments = await InvestmentModel.getByUserId(req.user.id);
       res.json({ success: true, data: investments });
     } catch (err) {

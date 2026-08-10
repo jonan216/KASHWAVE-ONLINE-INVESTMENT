@@ -223,7 +223,7 @@ const DashboardPage = () => {
       <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#102542]">
         <div className="flex items-center gap-2 font-medium">
           <FiCalendar className="w-4 h-4 text-[#D4AF37] shrink-0" />
-          <span>Earnings run <strong>Mon–Fri (5%/day)</strong> · Withdrawals on <strong>Fridays only</strong></span>
+          <span>Automated Earnings: <strong>24-Hour Returns (5%/day)</strong> credited directly to <strong>Available Balance</strong></span>
         </div>
         <div className="flex items-center gap-2 font-medium">
           <FiLock className="w-4 h-4 text-[#102542] shrink-0" />
@@ -237,11 +237,11 @@ const DashboardPage = () => {
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
       >
         <StatCard
-          title="Wallet Balance"
+          title="Available Balance"
           value={formatUGX(mainBalance)}
           icon={FiCreditCard}
           accent="gold"
-          trend="+5%/day Mon-Fri"
+          trend="+5%/day (24 hrs)"
           subtitle="Available for withdrawal or reinvesting"
           index={0}
         />
