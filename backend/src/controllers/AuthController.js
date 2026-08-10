@@ -472,6 +472,15 @@ class AuthController {
       next(err);
     }
   }
+
+  static async getCsrfToken(req, res, next) {
+    try {
+      const csrfToken = await generateCsrfToken(req.user.id);
+      res.json({ success: true, csrfToken });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = AuthController;

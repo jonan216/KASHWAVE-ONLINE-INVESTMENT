@@ -39,6 +39,8 @@ router.get('/me', authenticateToken, AuthController.getMe);
 
 router.get('/referrals', authenticateToken, AuthController.getReferrals);
 
+router.get('/csrf-token', authenticateToken, AuthController.getCsrfToken);
+
 router.post(
   '/forgot-password',
   [
