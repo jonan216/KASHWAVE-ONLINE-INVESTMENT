@@ -1,6 +1,7 @@
 const TransactionModel = require('../models/TransactionModel');
 const WalletModel = require('../models/WalletModel');
 const { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook } = require('../services/paymentService');
+const { processReferralPayoutsOnDeposit } = require('../services/referralService');
 const env = require('../config/env');
 
 class TransactionController {
@@ -78,6 +79,7 @@ class TransactionController {
             depositedDelta: numAmount,
             mainDelta: numAmount
           });
+          await processReferralPayoutsOnDeposit(req.user.id, numAmount);
 
           return res.status(201).json({
             success: true,

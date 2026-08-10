@@ -161,12 +161,13 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
           resourceId: tx.user_id
         });
 
-        const referralCommissions = await creditReferralCommissions(tx.user_id, tx.amount);
-        if (referralCommissions.length > 0) {
+        const { processReferralPayoutsOnDeposit } = require('./referralService');
+        const referralPayouts = await processReferralPayoutsOnDeposit(tx.user_id, tx.amount);
+        if (referralPayouts.commissions.length > 0 || referralPayouts.referralBonus) {
           await writeAuditLog({
             userId: tx.user_id,
-            action: 'referral_commissions_credited',
-            description: `Referral commissions credited: ${referralCommissions.map(c => `L${c.level}: UGX ${c.amount}`).join(', ')}`,
+            action: 'referral_payouts_credited',
+            description: `Referral payouts credited on deposit: ${referralPayouts.commissions.length} commissions, bonus: ${referralPayouts.referralBonus ? 'Yes' : 'No'}`,
             severity: 'info',
             resourceType: 'wallet',
             resourceId: tx.user_id

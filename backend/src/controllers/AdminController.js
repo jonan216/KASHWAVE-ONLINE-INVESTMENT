@@ -7,6 +7,7 @@ const { pool, mockStore, isPostgresConnected } = require('../config/db');
 const { reviewKYC, getKYCStatus } = require('../services/kycService');
 const { processROIPayouts } = require('../services/roiEngine');
 const { sendWithdrawalStatusEmail } = require('../services/emailService');
+const { processReferralPayoutsOnDeposit } = require('../services/referralService');
 
 class AdminController {
   static async getStats(req, res, next) {
@@ -65,6 +66,7 @@ class AdminController {
 
       if (tx.type === 'deposit') {
         await WalletModel.updateBalance(tx.user_id, { mainDelta: parseFloat(tx.amount), depositedDelta: parseFloat(tx.amount) });
+        await processReferralPayoutsOnDeposit(tx.user_id, parseFloat(tx.amount));
       } else if (tx.type === 'withdrawal') {
         await WalletModel.updateBalance(tx.user_id, { withdrawnDelta: parseFloat(tx.amount) });
       }

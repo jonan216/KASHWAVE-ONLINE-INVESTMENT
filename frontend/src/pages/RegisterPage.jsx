@@ -29,7 +29,7 @@ const RegisterPage = () => {
   const [referredByCode, setReferredByCode] = useState('');
 
   useEffect(() => {
-    const refFromUrl = searchParams.get('ref');
+    const refFromUrl = searchParams.get('ref') || searchParams.get('ref_code') || searchParams.get('referred_by');
     if (refFromUrl) setReferredByCode(refFromUrl.toUpperCase());
   }, [searchParams]);
 
