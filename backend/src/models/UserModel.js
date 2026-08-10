@@ -209,14 +209,26 @@ class UserModel {
       const testUserIds = testUsersRes.rows.map(u => u.id);
       if (testUserIds.length === 0) return { count: 0, deletedUsers: [] };
 
-      await pool.query(`DELETE FROM audit_logs WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM kyc_verification WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM payment_transactions WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM investments WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM transactions WHERE user_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM referrals WHERE referrer_id = ANY($1::int[]) OR referee_id = ANY($1::int[])`, [testUserIds]);
-      await pool.query(`DELETE FROM wallets WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      const safeDelete = async (query, params = [testUserIds]) => {
+        try { await pool.query(query, params); } catch (err) {
+          console.warn(`[PURGE WARN] ${query}:`, err.message);
+        }
+      };
+
+      await safeDelete(`UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM audit_logs WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM refresh_tokens WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM csrf_tokens WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM security_events WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM kyc_verification WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM payment_transactions WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM investments WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM transactions WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM deposits WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM withdrawals WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM notifications WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM referrals WHERE referrer_id = ANY($1::int[]) OR referee_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM wallets WHERE user_id = ANY($1::int[])`);
       await pool.query(`DELETE FROM users WHERE id = ANY($1::int[])`, [testUserIds]);
 
       return { count: testUserIds.length, deletedUsers: testUsersRes.rows };
@@ -239,27 +251,43 @@ class UserModel {
   static async deleteUserById(userId) {
     const id = parseInt(userId);
     if (isPostgresConnected() && pool) {
-      const userRes = await pool.query('SELECT id, email, full_name, role FROM users WHERE id = $1', [id]);
+      const userRes = await pool.query('SELECT id, email, full_name, role, referral_code FROM users WHERE id = $1', [id]);
       const user = userRes.rows[0];
       if (!user) return null;
 
-      try {
-        await pool.query('SELECT delete_user_cascade($1)', [id]);
-      } catch (rpcErr) {
-        // Fallback to explicit DELETE queries if RPC function is not installed yet
-        await pool.query(`DELETE FROM audit_logs WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM kyc_verification WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM investments WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM transactions WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM deposits WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM withdrawals WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM notifications WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`, [id]);
-        await pool.query(`DELETE FROM wallets WHERE user_id = $1`, [id]);
-        await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+      const safeDelete = async (query, params = [id]) => {
+        try {
+          await pool.query(query, params);
+        } catch (err) {
+          console.warn(`[USER DELETE WARN] ${query}:`, err.message);
+        }
+      };
+
+      // Clear foreign key references on deposits where user approved
+      await safeDelete(`UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = $1`);
+
+      // Clear referred_by_code on users who were referred by this user
+      if (user.referral_code) {
+        await safeDelete(`UPDATE users SET referred_by_code = NULL WHERE referred_by_code = $1`, [user.referral_code]);
       }
+
+      // Delete dependent records across all possible system tables
+      await safeDelete(`DELETE FROM audit_logs WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM refresh_tokens WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM csrf_tokens WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM security_events WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM kyc_verification WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM payment_transactions WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM investments WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM transactions WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM deposits WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM withdrawals WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM notifications WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`);
+      await safeDelete(`DELETE FROM wallets WHERE user_id = $1`);
+
+      // Finally delete the user record itself
+      await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
 
       return user;
     } else {
