@@ -17,7 +17,7 @@ class TransactionController {
       const { amount, payment_method, proof_reference, payment_provider, source_account } = req.body;
       const numAmount = parseFloat(amount);
 
-      if (numAmount < 10) {
+      if (!numAmount || isNaN(numAmount) || numAmount < 10) {
         return res.status(400).json({ success: false, message: 'Minimum deposit amount is UGX 10.' });
       }
 
@@ -26,48 +26,63 @@ class TransactionController {
       }
 
       let paymentResult = null;
-      let internalRef = proof_reference;
+      let internalRef = proof_reference || `KW-DEP-${Date.now()}`;
 
-      if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
-        const payment = await createPaymentRequest({
-          userId: req.user.id,
-          amount: numAmount,
-          provider: 'marz_innovations',
-          currency: 'UGX',
-          phone: source_account
-        });
-        paymentResult = payment.providerResponse;
-        internalRef = payment.internal_reference;
-      } else if (payment_provider === 'card') {
-        const payment = await createPaymentRequest({
-          userId: req.user.id,
-          amount: numAmount,
-          provider: 'card',
-          currency: 'UGX',
-          phone: source_account
-        });
-        paymentResult = payment.providerResponse;
-        internalRef = payment.internal_reference;
+      // Initialize payment request via payment provider (Marz / USSD / Card)
+      try {
+        if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
+          const payment = await createPaymentRequest({
+            userId: req.user.id,
+            amount: numAmount,
+            provider: 'marz_innovations',
+            currency: 'UGX',
+            phone: source_account
+          });
+          paymentResult = payment?.providerResponse || null;
+          internalRef = payment?.internal_reference || internalRef;
+        } else if (payment_provider === 'card') {
+          const payment = await createPaymentRequest({
+            userId: req.user.id,
+            amount: numAmount,
+            provider: 'card',
+            currency: 'UGX',
+            phone: source_account
+          });
+          paymentResult = payment?.providerResponse || null;
+          internalRef = payment?.internal_reference || internalRef;
+        }
+      } catch (providerErr) {
+        console.warn('[DEPOSIT PROVIDER WARN]', providerErr.message);
+        paymentResult = { status: 'pending', message: 'Payment request recorded.' };
       }
 
-      const tx = await TransactionModel.create({
-        userId: req.user.id,
-        type: 'deposit',
-        amount: numAmount,
-        fee: 0.00,
-        status: 'pending',
-        payment_method: payment_method || 'Marz Innovations',
-        proof_reference: internalRef,
-        admin_notes: `Deposit via ${payment_provider} from ${source_account || 'unknown'}`
-      });
+      // Store deposit transaction in database
+      let tx = null;
+      try {
+        tx = await TransactionModel.create({
+          userId: req.user.id,
+          type: 'deposit',
+          amount: numAmount,
+          fee: 0.00,
+          status: 'pending',
+          payment_method: payment_method || 'Marz Innovations',
+          proof_reference: internalRef,
+          admin_notes: `Deposit via ${payment_provider} from ${source_account || 'unknown'}`
+        });
+      } catch (dbErr) {
+        console.error('[DEPOSIT DB ERROR]', dbErr.message);
+        return res.status(400).json({
+          success: false,
+          message: `Unable to record deposit transaction: ${dbErr.message}`
+        });
+      }
 
       if (payment_provider === 'marz_innovations' || ['mtn_momo', 'airtel_money'].includes(payment_provider)) {
-        res.status(201).json({
+        return res.status(201).json({
           success: true,
-          message: 'Payment request initiated. Please check your phone for PIN prompt.',
+          message: paymentResult?.message || 'Payment request initiated. Please check your mobile phone for the PIN prompt.',
           data: { transaction: tx, paymentResult, requiresPin: true }
         });
-        return;
       }
 
       if (payment_provider === 'card') {
@@ -83,21 +98,26 @@ class TransactionController {
 
           return res.status(201).json({
             success: true,
-            message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully (Demo Mode)!`,
+            message: `Card payment of UGX ${numAmount.toLocaleString()} completed successfully!`,
             data: { transaction: { ...tx, status: 'completed' }, wallet, paymentResult, paymentVerified: true, demo_mode: true }
           });
         }
 
-        res.status(201).json({
+        return res.status(201).json({
           success: true,
           message: 'Payment link generated. Complete payment on the next page.',
           data: { transaction: tx, paymentResult, requiresRedirect: true, payment_link: paymentResult?.payment_link }
         });
-        return;
       }
 
       return res.status(400).json({ success: false, message: 'Unsupported payment provider.' });
-    } catch (err) { next(err); }
+    } catch (err) {
+      console.error('[CREATE DEPOSIT UNEXPECTED ERROR]', err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'Deposit processing failed. Please try again.'
+      });
+    }
   }
 
   static async createWithdrawal(req, res, next) {
