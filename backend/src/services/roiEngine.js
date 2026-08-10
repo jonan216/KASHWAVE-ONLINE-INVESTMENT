@@ -78,7 +78,7 @@ const processROIPayouts = async () => {
           FROM investments i
           JOIN investment_plans ip ON i.plan_id = ip.id
           WHERE i.status = 'active'
-            AND i.end_date > NOW()
+            AND (i.end_date IS NULL OR i.end_date > NOW())
             AND (
               (i.last_payout_at IS NULL AND i.created_at <= NOW() - INTERVAL '24 hours')
               OR (i.last_payout_at IS NOT NULL AND i.last_payout_at <= NOW() - INTERVAL '24 hours')
