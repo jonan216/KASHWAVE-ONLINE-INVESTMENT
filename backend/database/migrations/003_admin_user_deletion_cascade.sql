@@ -50,13 +50,30 @@ ALTER TABLE IF EXISTS csrf_tokens
   DROP CONSTRAINT IF EXISTS csrf_tokens_user_id_fkey,
   ADD CONSTRAINT csrf_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
+-- Ensure audit_logs user_id foreign key uses ON DELETE SET NULL (compliance with immutable logs)
+ALTER TABLE IF EXISTS audit_logs
+  DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey,
+  ADD CONSTRAINT audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+
 -- 2. CREATE CASCADE PURGE STORED PROCEDURE (RPC) FOR SUPABASE / POSTGRESQL
 CREATE OR REPLACE FUNCTION delete_user_cascade(target_user_id INTEGER)
 RETURNS VOID AS $$
 BEGIN
-    DELETE FROM audit_logs WHERE user_id = target_user_id;
+    -- Clear foreign keys where user acts as admin or referrer
+    UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = target_user_id;
+    UPDATE withdrawals SET approved_by = NULL WHERE approved_by = target_user_id;
+    UPDATE kyc_verification SET reviewed_by = NULL WHERE reviewed_by = target_user_id;
+    UPDATE roi_settings SET created_by = NULL WHERE created_by = target_user_id;
+    UPDATE users SET referred_by_code = NULL WHERE referred_by_code = (SELECT referral_code FROM users WHERE id = target_user_id);
+
+    -- Note: audit_logs are IMMUTABLE, so do NOT delete from audit_logs.
+    -- Foreign key ON DELETE SET NULL will set user_id to NULL on user deletion.
+
     DELETE FROM refresh_tokens WHERE user_id = target_user_id;
+    DELETE FROM password_reset_tokens WHERE user_id = target_user_id;
+    DELETE FROM email_verification_tokens WHERE user_id = target_user_id;
     DELETE FROM csrf_tokens WHERE user_id = target_user_id;
+    DELETE FROM security_events WHERE user_id = target_user_id;
     DELETE FROM kyc_verification WHERE user_id = target_user_id;
     DELETE FROM payment_transactions WHERE user_id = target_user_id;
     DELETE FROM investments WHERE user_id = target_user_id;

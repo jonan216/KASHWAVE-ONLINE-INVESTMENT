@@ -216,8 +216,12 @@ class UserModel {
       };
 
       await safeDelete(`UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = ANY($1::int[])`);
-      await safeDelete(`DELETE FROM audit_logs WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`UPDATE withdrawals SET approved_by = NULL WHERE approved_by = ANY($1::int[])`);
+      await safeDelete(`UPDATE kyc_verification SET reviewed_by = NULL WHERE reviewed_by = ANY($1::int[])`);
+      await safeDelete(`UPDATE roi_settings SET created_by = NULL WHERE created_by = ANY($1::int[])`);
       await safeDelete(`DELETE FROM refresh_tokens WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM password_reset_tokens WHERE user_id = ANY($1::int[])`);
+      await safeDelete(`DELETE FROM email_verification_tokens WHERE user_id = ANY($1::int[])`);
       await safeDelete(`DELETE FROM csrf_tokens WHERE user_id = ANY($1::int[])`);
       await safeDelete(`DELETE FROM security_events WHERE user_id = ANY($1::int[])`);
       await safeDelete(`DELETE FROM kyc_verification WHERE user_id = ANY($1::int[])`);
@@ -263,17 +267,23 @@ class UserModel {
         }
       };
 
-      // Clear foreign key references on deposits where user approved
+      // Clear foreign key references on tables where user acted as admin/approver/reviewer
       await safeDelete(`UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = $1`);
+      await safeDelete(`UPDATE withdrawals SET approved_by = NULL WHERE approved_by = $1`);
+      await safeDelete(`UPDATE kyc_verification SET reviewed_by = NULL WHERE reviewed_by = $1`);
+      await safeDelete(`UPDATE roi_settings SET created_by = NULL WHERE created_by = $1`);
 
-      // Clear referred_by_code on users who were referred by this user
+      // Detach referred_by_code on users who signed up under this user
       if (user.referral_code) {
         await safeDelete(`UPDATE users SET referred_by_code = NULL WHERE referred_by_code = $1`, [user.referral_code]);
       }
 
-      // Delete dependent records across all possible system tables
-      await safeDelete(`DELETE FROM audit_logs WHERE user_id = $1`);
+      // Delete dependent records
+      // NOTE: audit_logs has an IMMUTABLE trigger (trg_audit_logs_immutable_delete).
+      // Do NOT delete from audit_logs — the ON DELETE SET NULL FK handles decoupling automatically.
       await safeDelete(`DELETE FROM refresh_tokens WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM password_reset_tokens WHERE user_id = $1`);
+      await safeDelete(`DELETE FROM email_verification_tokens WHERE user_id = $1`);
       await safeDelete(`DELETE FROM csrf_tokens WHERE user_id = $1`);
       await safeDelete(`DELETE FROM security_events WHERE user_id = $1`);
       await safeDelete(`DELETE FROM kyc_verification WHERE user_id = $1`);
