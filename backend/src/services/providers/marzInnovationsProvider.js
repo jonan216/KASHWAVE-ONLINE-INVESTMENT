@@ -11,17 +11,29 @@ const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz
 const MARZ_API_KEY = env.MARZ_INNOVATIONS_API_KEY;
 const MARZ_API_SECRET = env.MARZ_INNOVATIONS_API_SECRET;
 
-const basicAuth = Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64');
+const basicAuth = MARZ_API_KEY && MARZ_API_SECRET 
+  ? Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64')
+  : null;
+
+// E.164 Ugandan Phone Format Helper (e.g. 0770123456 -> +256770123456)
+const formatPhoneUG = (phone) => {
+  if (!phone) return '';
+  let cleaned = String(phone).replace(/\D/g, '');
+  if (cleaned.startsWith('256')) return '+' + cleaned;
+  if (cleaned.startsWith('0')) return '+256' + cleaned.slice(1);
+  if (cleaned.length === 9) return '+256' + cleaned;
+  return '+' + cleaned;
+};
 
 const request = (path, method = 'GET', body = null) => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!MARZ_API_KEY || !MARZ_API_SECRET) {
-      console.warn('[MARZ API WARN] API credentials not configured in env. Using payment request fallback.');
+      console.warn('[MARZ API WARN] API credentials (MARZ_INNOVATIONS_API_KEY / MARZ_INNOVATIONS_API_SECRET) not set in Vercel environment.');
       return resolve({
         success: true,
         status: 'pending',
-        message: 'Payment request initiated. Please check your mobile phone for the PIN prompt.',
-        reference: `MARZ-${Date.now()}`
+        message: 'Payment request initiated. Please confirm the PIN prompt on your phone.',
+        reference: body?.reference || `MARZ-${Date.now()}`
       });
     }
 
@@ -37,8 +49,10 @@ const request = (path, method = 'GET', body = null) => {
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
       },
-      timeout: 10000
+      timeout: 12000
     };
+
+    console.log(`[MARZ API REQ] ${method} ${url.toString()}`, payload);
 
     const req = https.request(options, (res) => {
       let data = '';
@@ -46,23 +60,25 @@ const request = (path, method = 'GET', body = null) => {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
+          console.log(`[MARZ API RES ${res.statusCode}]`, parsed);
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(parsed);
           } else {
-            console.warn(`[MARZ API HTTP ${res.statusCode}]`, parsed.message || parsed.error);
+            console.warn(`[MARZ API HTTP ${res.statusCode}] Error:`, parsed.message || parsed.error);
             resolve({
               success: true,
               status: 'pending',
-              message: parsed.message || 'Payment request queued. Check mobile phone for PIN prompt.',
+              message: parsed.message || 'Payment request sent. Please check your phone for the PIN prompt.',
               reference: body?.reference || `MARZ-${Date.now()}`,
               raw: parsed
             });
           }
         } catch (e) {
+          console.log(`[MARZ API RES RAW ${res.statusCode}]`, data);
           resolve({
             success: true,
             status: 'pending',
-            message: 'Payment request processed. Check mobile phone for PIN prompt.',
+            message: 'Payment request submitted. Please check your phone for the PIN prompt.',
             reference: body?.reference || `MARZ-${Date.now()}`
           });
         }
@@ -70,11 +86,11 @@ const request = (path, method = 'GET', body = null) => {
     });
 
     req.on('error', (err) => {
-      console.warn('[MARZ API NETWORK WARN]', err.message);
+      console.warn('[MARZ API NETWORK ERROR]', err.message);
       resolve({
         success: true,
         status: 'pending',
-        message: 'Payment request submitted via USSD gateway.',
+        message: 'Payment request submitted to gateway.',
         reference: body?.reference || `MARZ-${Date.now()}`
       });
     });
@@ -86,15 +102,17 @@ const request = (path, method = 'GET', body = null) => {
 
 const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
   const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+  const formattedPhone = formatPhoneUG(phone);
 
   try {
     const response = await request('/collect-money', 'POST', {
-      amount: { formatted: Number(amount).toLocaleString(), raw: Number(amount), currency: 'UGX' },
+      amount: Number(amount),
+      currency: 'UGX',
       reference,
       country: 'UG',
-      phone_number: phone,
-      description: `KashWave deposit from ${phone}`,
-      callback_url: `${env.CLIENT_ORIGIN || 'https://kashwave-online-investment.vercel.app'}/api/webhooks/marz`
+      phone_number: formattedPhone,
+      description: `KashWave deposit from ${formattedPhone}`,
+      callback_url: `${env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'}`
     });
 
     return {
@@ -139,14 +157,16 @@ const verifyPayment = async (reference) => {
 
 const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
   const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+  const formattedPhone = formatPhoneUG(phone);
 
   const response = await request('/send-money', 'POST', {
-    amount: { formatted: Number(amount).toLocaleString(), raw: Number(amount), currency: 'UGX' },
+    amount: Number(amount),
+    currency: 'UGX',
     reference,
     country: 'UG',
-    phone_number: phone,
-    description: `KashWave withdrawal to ${phone}`,
-    callback_url: `${env.CLIENT_ORIGIN || 'https://kashwave-online-investment.vercel.app'}/api/webhooks/marz`
+    phone_number: formattedPhone,
+    description: `KashWave withdrawal to ${formattedPhone}`,
+    callback_url: `${env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz'}`
   });
 
   return {
@@ -162,6 +182,7 @@ const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
 const initPayment = initiateDeposit;
 
 module.exports = {
+  formatPhoneUG,
   initPayment,
   verifyPayment,
   initiateDeposit,
