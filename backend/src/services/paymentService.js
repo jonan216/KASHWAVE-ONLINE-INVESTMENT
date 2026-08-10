@@ -25,7 +25,7 @@ const generateReference = (prefix = 'KW-PAY') =>
 
 // ─── Create Payment Request ─────────────────────────────────────────────────
 const createPaymentRequest = async ({ userId, amount, currency = 'UGX', provider = 'manual', direction = 'inbound', phone, method }) => {
-  const internalRef = generateReference('KW-DEP');
+  const internalRef = provider === 'marz_innovations' ? crypto.randomUUID() : generateReference('KW-DEP');
   const providerRef = `EXT-${Date.now()}`;
   const providerInstance = providers[provider];
 

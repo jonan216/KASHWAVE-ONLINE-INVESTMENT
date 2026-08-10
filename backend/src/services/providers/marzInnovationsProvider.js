@@ -4,6 +4,7 @@
  * Base URL: https://wallet.wearemarz.com/api/v1
  */
 const https = require('https');
+const crypto = require('crypto');
 const { URL } = require('url');
 const env = require('../../config/env');
 
@@ -15,25 +16,33 @@ const basicAuth = MARZ_API_KEY && MARZ_API_SECRET
   ? Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64')
   : null;
 
-// Ugandan Phone Format Helper: Digits-only 256XXXXXXXXX format (e.g. 0770123456 -> 256770123456)
+// Ugandan Phone Format Helper: +256XXXXXXXXX format required by Marz Innovations (e.g. +256770123456)
 const formatPhoneUG = (phone) => {
   if (!phone) return '';
   let cleaned = String(phone).replace(/\D/g, '');
-  if (cleaned.startsWith('256')) return cleaned;
-  if (cleaned.startsWith('0')) return '256' + cleaned.slice(1);
-  if (cleaned.length === 9) return '256' + cleaned;
-  return cleaned;
+  if (cleaned.startsWith('256')) return '+' + cleaned;
+  if (cleaned.startsWith('0')) return '+256' + cleaned.slice(1);
+  if (cleaned.length === 9) return '+256' + cleaned;
+  return '+' + cleaned;
+};
+
+// Ensure reference is valid UUID v4 format as required by Marz API
+const ensureUUID = (ref) => {
+  if (ref && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(ref)) {
+    return ref;
+  }
+  return crypto.randomUUID();
 };
 
 const request = (path, method = 'GET', body = null) => {
   return new Promise((resolve) => {
     if (!MARZ_API_KEY || !MARZ_API_SECRET) {
-      console.warn('[MARZ API WARN] API credentials (MARZ_INNOVATIONS_API_KEY / MARZ_INNOVATIONS_API_SECRET) not set in Vercel environment.');
+      console.warn('[MARZ API WARN] API credentials not set in Vercel environment.');
       return resolve({
         success: true,
         status: 'pending',
         message: 'Payment request initiated. Please confirm the PIN prompt on your phone.',
-        reference: body?.reference || `MARZ-${Date.now()}`
+        reference: body?.reference || crypto.randomUUID()
       });
     }
 
@@ -75,12 +84,12 @@ const request = (path, method = 'GET', body = null) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(parsed);
           } else {
-            console.warn(`[MARZ API HTTP ${res.statusCode}] Error:`, parsed.message || parsed.error);
+            console.warn(`[MARZ API HTTP ${res.statusCode}] Error:`, parsed.message || parsed.error || parsed);
             resolve({
-              success: true,
-              status: 'pending',
+              success: parsed.status === 'success',
+              status: parsed.status || 'pending',
               message: parsed.message || 'Payment request sent. Please check your phone for the PIN prompt.',
-              reference: body?.reference || `MARZ-${Date.now()}`,
+              reference: body?.reference || crypto.randomUUID(),
               raw: parsed
             });
           }
@@ -90,7 +99,7 @@ const request = (path, method = 'GET', body = null) => {
             success: true,
             status: 'pending',
             message: 'Payment request submitted. Please check your phone for the PIN prompt.',
-            reference: body?.reference || `MARZ-${Date.now()}`
+            reference: body?.reference || crypto.randomUUID()
           });
         }
       });
@@ -102,7 +111,7 @@ const request = (path, method = 'GET', body = null) => {
         success: true,
         status: 'pending',
         message: 'Payment request submitted to gateway.',
-        reference: body?.reference || `MARZ-${Date.now()}`
+        reference: body?.reference || crypto.randomUUID()
       });
     });
 
@@ -111,19 +120,19 @@ const request = (path, method = 'GET', body = null) => {
   });
 };
 
-// Auto-detect telecom network from Ugandan phone prefix (077/078/076 -> mtn, 070/075/074 -> airtel)
+// Auto-detect telecom network from Ugandan phone prefix
 const detectNetwork = (phone, fallbackMethod = 'mtn') => {
-  const cleaned = formatPhoneUG(phone);
+  const cleaned = formatPhoneUG(phone).replace(/\D/g, '');
   if (/^256(70|75|74)/.test(cleaned)) return 'airtel';
   if (/^256(77|78|76|39)/.test(cleaned)) return 'mtn';
   return String(fallbackMethod || 'mtn').toLowerCase();
 };
 
 const initiateDeposit = async ({ amount, phone, method = 'mtn', reference: externalRef, currency = 'UGX' }) => {
-  // Use the reference passed from paymentService so the webhook can match the DB record.
-  const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+  // Ensure reference is valid UUID v4 required by Marz API
+  const reference = ensureUUID(externalRef);
   const formattedPhone = formatPhoneUG(phone);
-  const networkName = detectNetwork(phone, method);
+  const networkName = detectNetwork(phone, method).toUpperCase();
 
   console.log(`[MARZ INITIATE DEPOSIT] phone=${formattedPhone} amount=${amount} ref=${reference} network=${networkName}`);
 
@@ -189,7 +198,7 @@ const verifyPayment = async (reference) => {
 };
 
 const initiateWithdrawal = async ({ amount, phone, method = 'mtn', reference: externalRef, currency = 'UGX' }) => {
-  const reference = externalRef || `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+  const reference = ensureUUID(externalRef);
   const formattedPhone = formatPhoneUG(phone);
 
   console.log(`[MARZ INITIATE WITHDRAWAL] phone=${formattedPhone} amount=${amount} ref=${reference}`);
@@ -217,7 +226,7 @@ const initiateWithdrawal = async ({ amount, phone, method = 'mtn', reference: ex
 // ─── Test connectivity to MarzPay API ───────────────────────────────────────
 const testConnection = async () => {
   if (!MARZ_API_KEY || !MARZ_API_SECRET) {
-    return { connected: false, reason: 'MarzPay credentials not configured (MARZ_INNOVATIONS_API_KEY / MARZ_INNOVATIONS_API_SECRET missing from environment variables)' };
+    return { connected: false, reason: 'MarzPay credentials not configured' };
   }
   try {
     const response = await request('/transactions', 'GET');
@@ -239,3 +248,4 @@ module.exports = {
   initiateDeposit,
   initiateWithdrawal
 };
+
