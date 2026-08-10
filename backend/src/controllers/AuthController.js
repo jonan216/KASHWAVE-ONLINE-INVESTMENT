@@ -112,6 +112,9 @@ class AuthController {
       await RefreshTokenModel.deleteAllForUser(user.id);
       await RefreshTokenModel.create(user.id, tokenHash, expiresAt);
 
+      // Generate CSRF token so user can make POST requests immediately after sign-up
+      const csrfToken = await generateCsrfToken(user.id);
+
       const wallet = await WalletModel.getByUserId(user.id);
 
       const bonus = await AuthController.creditWelcomeBonusIfEligible(user.id);
@@ -144,7 +147,7 @@ class AuthController {
       res.status(201).json({
         success: true,
         message: bonus ? `Welcome! UGX ${bonus.bonusAmount.toLocaleString()} bonus has been added to your wallet.` : 'Account created! Check your email for your referral code.',
-        data: { user, wallet, accessToken, refreshToken, welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null }
+        data: { user, wallet, accessToken, refreshToken, csrfToken, welcome_bonus: bonus ? { amount: bonus.bonusAmount, reference: bonus.referenceCode } : null }
       });
     } catch (err) {
       next(err);
@@ -210,16 +213,20 @@ class AuthController {
       const { password_hash, ...userClean } = user;
 
       let referralBonus = null;
-      if (user.referred_by_code) {
-        const referrer = await UserModel.findByReferralCode(user.referred_by_code);
-        if (referrer && referrer.id !== user.id) {
-          const existingBonus = await pool.query(
-            `SELECT id FROM transactions WHERE user_id = $1 AND type = 'referral_bonus' AND admin_notes LIKE $2 LIMIT 1`,
-            [referrer.id, `%${user.id}%`]
-          );
-          if (existingBonus.rows.length === 0) {
-            referralBonus = await creditReferralBonus(referrer.id, user.id);
+      if (user.referred_by_code && isPostgresConnected() && pool) {
+        try {
+          const referrer = await UserModel.findByReferralCode(user.referred_by_code);
+          if (referrer && referrer.id !== user.id) {
+            const existingBonus = await pool.query(
+              `SELECT id FROM transactions WHERE user_id = $1 AND type = 'referral_bonus' AND admin_notes LIKE $2 LIMIT 1`,
+              [referrer.id, `%${user.id}%`]
+            );
+            if (existingBonus.rows.length === 0) {
+              referralBonus = await creditReferralBonus(referrer.id, user.id);
+            }
           }
+        } catch (refErr) {
+          console.warn('[LOGIN REFERRAL BONUS] Non-fatal error:', refErr.message);
         }
       }
 
