@@ -1,10 +1,10 @@
 {
   "builds": [
     {
-      "src": "frontend/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "buildCommand": "cd frontend && npm run build && mv dist ../dist"
+        "distDir": "frontend/dist"
       }
     },
     {
