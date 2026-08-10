@@ -37,7 +37,14 @@ const request = (path, method = 'GET', body = null) => {
       });
     }
 
-    const payload = body ? JSON.stringify(body) : null;
+    const payloadData = body ? {
+      ...body,
+      api_key: MARZ_API_KEY,
+      api_secret: MARZ_API_SECRET,
+      app_key: MARZ_API_KEY,
+      app_secret: MARZ_API_SECRET
+    } : null;
+    const payload = payloadData ? JSON.stringify(payloadData) : null;
     const url = new URL(`${MARZ_BASE_URL}${path}`);
     const options = {
       hostname: url.hostname,
@@ -46,6 +53,10 @@ const request = (path, method = 'GET', body = null) => {
       method,
       headers: {
         'Authorization': `Basic ${basicAuth}`,
+        'x-api-key': MARZ_API_KEY,
+        'x-api-secret': MARZ_API_SECRET,
+        'X-API-KEY': MARZ_API_KEY,
+        'X-API-SECRET': MARZ_API_SECRET,
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
       },
