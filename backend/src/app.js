@@ -183,6 +183,13 @@ if (require.main === module) {
   testConnection().then(() => {
     const connected = isPostgresConnected();
     console.log(connected ? 'PostgreSQL Database Connected Successfully.' : 'Using in-memory Mock Store mode.');
+    const { processROIPayouts } = require('./services/roiEngine');
+    // Run initial check on startup & repeat every 60 seconds
+    processROIPayouts().catch(err => console.error('[ROI STARTUP CRON ERROR]', err.message));
+    setInterval(() => {
+      processROIPayouts().catch(err => console.error('[ROI BACKGROUND TICKER ERROR]', err.message));
+    }, 60000);
+
     app.listen(env.PORT, () => {
       console.log(`=======================================================`);
       console.log(`  KASHWAVE API Server running on port ${env.PORT}`);

@@ -128,10 +128,10 @@ const WithdrawPage = () => {
         <FiCalendar className="w-5 h-5 shrink-0 mt-0.5" />
         <div className="text-xs font-medium leading-relaxed font-mono">
           {friday ? (
-            <p className="font-extrabold">✅ Friday withdrawal window is open. Requests submitted today are queued for verification.</p>
+            <p className="font-extrabold">✅ Friday withdrawal window is open! Submit your request to withdraw your accumulated Available Balance (5% daily profits) to Mobile Money or Bank.</p>
           ) : (
             <p>
-              <strong className="font-extrabold text-sm">Notice: Friday-only withdrawals enforced.</strong> Payout queue remains locked until Friday. You can prepare requests in advance.
+              <strong className="font-extrabold text-sm">Notice: Friday-only withdrawals enforced.</strong> Your 5% daily ROI profits are automatically added to your Available Balance every 24 hours. The withdrawal payout queue unlocks every Friday!
             </p>
           )}
         </div>

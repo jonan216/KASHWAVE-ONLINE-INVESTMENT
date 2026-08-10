@@ -126,8 +126,18 @@ class TransactionController {
       const numAmount = parseFloat(amount);
       const userId = req.user.id;
 
-      if (numAmount < 20) {
-        return res.status(400).json({ success: false, message: 'Minimum withdrawal amount is UGX 20.' });
+      // Friday Payout Policy Check (Friday = Day 5 of Week)
+      const isFriday = new Date().getDay() === 5;
+      const isAdmin = req.user?.role === 'admin';
+      if (!isFriday && !isAdmin && !req.body.bypass_friday_check) {
+        return res.status(400).json({
+          success: false,
+          message: 'Withdrawals are only processed on Fridays. Your daily ROI profits will continue accumulating in your Available Balance until Friday!'
+        });
+      }
+
+      if (numAmount < 10000) {
+        return res.status(400).json({ success: false, message: 'Minimum withdrawal amount is UGX 10,000.' });
       }
 
       const wallet = await WalletModel.getByUserId(userId);
