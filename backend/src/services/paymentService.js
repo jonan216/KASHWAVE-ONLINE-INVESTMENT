@@ -194,6 +194,3 @@ const processVerifiedWebhook = async ({ providerName, rawPayload, signature, req
 };
 
 module.exports = { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook, generateReference };
-};
-
-module.exports = { createPaymentRequest, verifyWebhookSignature, processVerifiedWebhook, generateReference };

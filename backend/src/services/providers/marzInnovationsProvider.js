@@ -1,46 +1,22 @@
 /**
- * MarzPay — Collections & Disbursements Provider
- * Official API guide: https://wallet.wearemarz.com/documentation
- * Base URL: https://wallet.wearemarz.com/api/v1
- * Auth: HTTP Basic Auth (API key:secret)
+ * Marz Innovations — Primary Payment Provider
+ * Central deposit/withdrawal processor for KashWave
+ * API Base: https://wallet.wearemarz.com/API/v1
+ * Supports: MTN Mobile Money, Airtel Money, M-Pesa
  */
 const https = require('https');
-const crypto = require('crypto');
 const env = require('../../config/env');
 
-const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/api/v1';
+const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/API/v1';
 const MARZ_API_KEY = env.MARZ_INNOVATIONS_API_KEY;
 const MARZ_API_SECRET = env.MARZ_INNOVATIONS_API_SECRET;
 
-function formatPhoneToE164(phone) {
-  if (!phone) return phone;
-  const cleaned = String(phone).replace(/[^0-9]/g, '');
-  if (cleaned.startsWith('256')) return `+${cleaned}`;
-  if (cleaned.startsWith('0')) return `+256${cleaned.substring(1)}`;
-  if (!cleaned.startsWith('+')) return `+${cleaned}`;
-  return phone;
-}
-
-function generateUUID() {
-  if (typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = crypto.randomBytes(1)[0] % 16;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-function getAuthHeader() {
-  if (!MARZ_API_KEY || !MARZ_API_SECRET) {
-    throw new Error('MarzPay API credentials not configured');
-  }
-  return `Basic ${Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64')}`;
-}
-
-function marzRequest(path, method = 'GET', body = null) {
+const request = (path, method = 'GET', body = null) => {
   return new Promise((resolve, reject) => {
+    if (!MARZ_API_KEY || !MARZ_API_SECRET) {
+      return reject(new Error('Marz Innovations API credentials not configured'));
+    }
+
     const payload = body ? JSON.stringify(body) : null;
     const url = new URL(`${MARZ_BASE_URL}${path}`);
     const options = {
@@ -49,8 +25,8 @@ function marzRequest(path, method = 'GET', body = null) {
       path: url.pathname + url.search,
       method,
       headers: {
-        'Authorization': getAuthHeader(),
-        'Accept': 'application/json',
+        'Authorization': `Bearer ${MARZ_API_KEY}`,
+        'X-API-Secret': MARZ_API_SECRET,
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
       }
@@ -65,68 +41,54 @@ function marzRequest(path, method = 'GET', body = null) {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(parsed);
           } else {
-            reject(new Error(parsed.message || parsed.error || `MarzPay API error ${res.statusCode}`));
+            reject(new Error(parsed.message || parsed.error || `Marz API error ${res.statusCode}`));
           }
         } catch (e) {
-          reject(new Error(`Invalid JSON response from MarzPay API: ${data.substring(0, 100)}`));
+          reject(new Error(`Invalid JSON response from Marz API: ${data.substring(0, 100)}`));
         }
       });
     });
 
     req.on('error', reject);
-    req.setTimeout(30000, () => {
-      req.destroy();
-      reject(new Error('MarzPay API request timeout'));
-    });
     if (payload) req.write(payload);
     req.end();
   });
-}
+};
 
-const initPayment = async ({ amount, currency = 'UGX', reference, phone, method = 'mtn' }) => {
-  try {
-    const uuidReference = generateUUID();
-    const normalizedPhone = formatPhoneToE164(phone);
-    const response = await marzRequest('/collect-money', 'POST', {
-      amount: Number(amount),
-      phone_number: normalizedPhone,
-      reference: uuidReference,
-      country: 'UG',
-      description: `KashWave deposit - ${formatCurrency(amount)}`,
-      callback_url: env.MARZPAY_CALLBACK_URL || `${env.CLIENT_ORIGIN}/api/webhooks/marz`
-    });
+const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
+  const reference = `KW-DEP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    return {
-      provider: 'marz_innovations',
-      reference: response.data?.transaction?.reference || uuidReference,
-      transaction_id: response.data?.transaction?.uuid || response.data?.transaction?.id,
-      status: response.data?.transaction?.status || 'pending',
-      message: response.message || 'Payment request sent. Please check your phone for PIN prompt.',
-      raw: response
-    };
-  } catch (err) {
-    console.error('[MARZ] initPayment error:', err.message);
-    return {
-      provider: 'marz_innovations',
-      reference: reference || generateUUID(),
-      status: 'pending',
-      message: 'Payment request sent. Please check your phone for PIN prompt.',
-      raw: { error: err.message }
-    };
-  }
+  const response = await request('/payments/initiate', 'POST', {
+    amount: Number(amount),
+    currency: 'UGX',
+    reference,
+    customer_phone: phone,
+    payment_method: method,
+    merchant_id: 'kashwave'
+  });
+
+  return {
+    provider: 'marz_innovations',
+    reference: response.reference || reference,
+    transaction_id: response.transaction_id || response.id,
+    status: response.status || 'pending',
+    message: response.message || 'Payment request sent. Please check your phone for PIN prompt.',
+    payment_link: response.payment_link || response.checkout_url,
+    raw: response
+  };
 };
 
 const verifyPayment = async (reference) => {
   try {
-    const response = await marzRequest(`/collect-money/${encodeURIComponent(reference)}`, 'GET');
-    const status = (response.data?.transaction?.status || '').toLowerCase();
+    const response = await request(`/payments/${encodeURIComponent(reference)}`, 'GET');
+    const status = (response.status || '').toLowerCase();
     return {
-      verified: status === 'completed' || status === 'successful',
+      verified: status === 'success' || status === 'completed' || status === 'paid',
       reference,
-      status: response.data?.transaction?.status,
-      amount: response.data?.collection?.amount?.raw,
-      currency: response.data?.collection?.amount?.currency,
-      transaction_id: response.data?.transaction?.uuid,
+      status: response.status,
+      amount: response.amount,
+      currency: response.currency,
+      transaction_id: response.transaction_id || response.id,
       raw: response
     };
   } catch (err) {
@@ -135,39 +97,26 @@ const verifyPayment = async (reference) => {
   }
 };
 
-const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = generateUUID();
-  return initPayment({ amount, currency: 'UGX', reference, phone, method });
-};
-
 const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = generateUUID();
-  try {
-    const response = await marzRequest('/send-money', 'POST', {
-      amount: Number(amount),
-      phone_number: phone,
-      reference,
-      country: 'UG',
-      description: `KashWave withdrawal - ${formatCurrency(amount)}`
-    });
+  const reference = `KW-WD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-    return {
-      provider: 'marz_innovations',
-      reference: response.data?.transaction?.provider_reference || reference,
-      transaction_id: response.data?.transaction?.uuid,
-      status: response.data?.transaction?.status || 'pending',
-      message: response.message || 'Withdrawal initiated. Processing...',
-      raw: response
-    };
-  } catch (err) {
-    console.error('[MARZ] initiateWithdrawal error:', err.message);
-    throw err;
-  }
+  const response = await request('/withdrawals/initiate', 'POST', {
+    amount: Number(amount),
+    currency: 'UGX',
+    reference,
+    destination_phone: phone,
+    payment_method: method
+  });
+
+  return {
+    provider: 'marz_innovations',
+    reference: response.reference || reference,
+    transaction_id: response.transaction_id || response.id,
+    status: response.status || 'pending',
+    message: response.message || 'Withdrawal initiated. Processing...',
+    raw: response
+  };
 };
-
-function formatCurrency(amount) {
-  return `UGX ${Number(amount).toLocaleString()}`;
-}
 
 module.exports = {
   initPayment,
