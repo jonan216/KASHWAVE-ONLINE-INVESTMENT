@@ -1,4 +1,44 @@
 const { pool, mockStore, isPostgresConnected } = require('../config/db');
+const https = require('https');
+const env = require('../config/env');
+
+// Direct Supabase RPC call (bypasses exec_sql, calls dedicated RPC function by name)
+function supabaseRpc(functionName, payload) {
+  return new Promise((resolve, reject) => {
+    if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+      return reject(new Error('Supabase environment not configured'));
+    }
+    const body = JSON.stringify(payload);
+    const url = new URL(`${env.SUPABASE_URL}/rest/v1/rpc/${functionName}`);
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'apikey': env.SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body)
+      },
+      timeout: 15000
+    };
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed);
+        } catch (e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Supabase RPC timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
 
 class UserModel {
   static async findByEmail(email) {
@@ -255,32 +295,44 @@ class UserModel {
   static async deleteUserById(userId) {
     const id = parseInt(userId);
     if (isPostgresConnected() && pool) {
+
+      // Try to call admin_delete_user RPC (atomic, handles audit_logs immutability)
+      if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+        try {
+          const result = await supabaseRpc('admin_delete_user', { target_user_id: id });
+          if (result && result.success === false) {
+            if (result.message === 'User not found') return null;
+            throw new Error(result.message || 'admin_delete_user RPC returned failure');
+          }
+          // Return the deleted user info from the RPC result
+          if (result && result.deleted_user) {
+            return result.deleted_user;
+          }
+          // If RPC returns the user object directly (some Supabase versions)
+          return result || { id };
+        } catch (rpcErr) {
+          console.warn('[DELETE USER] RPC failed, falling back to sequential deletes:', rpcErr.message);
+        }
+      }
+
+      // Fallback: sequential safe deletes via exec_sql
       const userRes = await pool.query('SELECT id, email, full_name, role, referral_code FROM users WHERE id = $1', [id]);
       const user = userRes.rows[0];
       if (!user) return null;
 
       const safeDelete = async (query, params = [id]) => {
-        try {
-          await pool.query(query, params);
-        } catch (err) {
-          console.warn(`[USER DELETE WARN] ${query}:`, err.message);
+        try { await pool.query(query, params); } catch (err) {
+          console.warn(`[USER DELETE WARN]:`, err.message);
         }
       };
 
-      // Clear foreign key references on tables where user acted as admin/approver/reviewer
       await safeDelete(`UPDATE deposits SET approved_by_user_id = NULL WHERE approved_by_user_id = $1`);
       await safeDelete(`UPDATE withdrawals SET approved_by = NULL WHERE approved_by = $1`);
       await safeDelete(`UPDATE kyc_verification SET reviewed_by = NULL WHERE reviewed_by = $1`);
       await safeDelete(`UPDATE roi_settings SET created_by = NULL WHERE created_by = $1`);
-
-      // Detach referred_by_code on users who signed up under this user
       if (user.referral_code) {
         await safeDelete(`UPDATE users SET referred_by_code = NULL WHERE referred_by_code = $1`, [user.referral_code]);
       }
-
-      // Delete dependent records
-      // NOTE: audit_logs has an IMMUTABLE trigger (trg_audit_logs_immutable_delete).
-      // Do NOT delete from audit_logs — the ON DELETE SET NULL FK handles decoupling automatically.
       await safeDelete(`DELETE FROM refresh_tokens WHERE user_id = $1`);
       await safeDelete(`DELETE FROM password_reset_tokens WHERE user_id = $1`);
       await safeDelete(`DELETE FROM email_verification_tokens WHERE user_id = $1`);
@@ -296,8 +348,13 @@ class UserModel {
       await safeDelete(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`);
       await safeDelete(`DELETE FROM wallets WHERE user_id = $1`);
 
-      // Finally delete the user record itself
-      await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+      // NOTE: audit_logs are IMMUTABLE — do NOT delete from audit_logs.
+      // audit_logs.user_id will be set to NULL automatically by ON DELETE SET NULL FK.
+      try {
+        await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+      } catch (finalErr) {
+        throw new Error(`Failed to delete user: ${finalErr.message}`);
+      }
 
       return user;
     } else {
