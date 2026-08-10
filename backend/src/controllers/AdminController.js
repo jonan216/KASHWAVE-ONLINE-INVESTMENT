@@ -125,26 +125,50 @@ class AdminController {
   static async deleteUser(req, res, next) {
     try {
       const { id } = req.params;
-      if (parseInt(id) === req.user.id) {
-        return res.status(400).json({ success: false, message: 'You cannot delete your own administrative account.' });
+      const userId = parseInt(id);
+
+      if (userId === req.user.id) {
+        return res.status(400).json({ success: false, message: 'You cannot delete your own administrator account.' });
       }
 
-      const deletedUser = await UserModel.deleteUserById(id);
+      let deletedUser = null;
+      let deleteError = null;
+
+      try {
+        deletedUser = await UserModel.deleteUserById(userId);
+      } catch (err) {
+        deleteError = err.message;
+        console.error('[ADMIN DELETE USER ERROR]', err.message, err.stack);
+      }
+
+      if (deleteError && !deletedUser) {
+        return res.status(500).json({
+          success: false,
+          message: `Failed to delete user: ${deleteError}`
+        });
+      }
+
       if (!deletedUser) {
         return res.status(404).json({ success: false, message: 'User account not found.' });
       }
 
-      await req.audit('user_deleted_by_admin', {
-        userId: req.user.id,
-        description: `Admin deleted user ${deletedUser.full_name} (${deletedUser.email})`,
-        severity: 'warning'
-      });
+      // Log audit (non-blocking — never let this fail the response)
+      try {
+        await req.audit('user_deleted_by_admin', {
+          userId: req.user.id,
+          description: `Admin deleted user ID ${userId} (${deletedUser.email || deletedUser.full_name || 'unknown'})`,
+          severity: 'warning'
+        });
+      } catch (_) {}
 
-      res.json({
+      return res.json({
         success: true,
-        message: `User account for ${deletedUser.full_name} has been permanently deleted from the system.`
+        message: `User account has been permanently deleted from the system.`
       });
-    } catch (err) { next(err); }
+    } catch (err) {
+      console.error('[DELETE USER UNEXPECTED]', err);
+      return res.status(500).json({ success: false, message: `Delete failed: ${err.message}` });
+    }
   }
 
   // ─── User Management ──────────────────────────────────────────────────────

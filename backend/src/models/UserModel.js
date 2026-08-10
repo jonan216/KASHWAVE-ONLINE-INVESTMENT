@@ -29,6 +29,11 @@ function supabaseRpc(functionName, payload) {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
+          // Supabase HTTP-level errors (e.g. 404 function not found, 403 forbidden)
+          if (res.statusCode >= 400) {
+            const errMsg = parsed?.message || parsed?.error || parsed?.hint || `HTTP ${res.statusCode} from Supabase RPC`;
+            return reject(new Error(errMsg));
+          }
           resolve(parsed);
         } catch (e) { reject(e); }
       });
