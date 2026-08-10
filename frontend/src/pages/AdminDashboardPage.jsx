@@ -17,12 +17,13 @@ const AdminDashboardPage = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
 
-  const [activeTab, setActiveTab]       = useState('dashboard'); // dashboard | users | investments | deposits | withdrawals | plans | reports | settings
+  const [activeTab, setActiveTab]       = useState('dashboard'); // dashboard | users | investments | roi-approvals | deposits | withdrawals | plans | reports | settings
   const [stats, setStats]               = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [users, setUsers]               = useState([]);
   const [plans, setPlans]               = useState([]);
   const [investments, setInvestments]   = useState([]);
+  const [profitLedger, setProfitLedger] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [lastUpdated, setLastUpdated]   = useState(null);
 
@@ -38,18 +39,20 @@ const AdminDashboardPage = () => {
 
   const fetchAdminData = async () => {
     try {
-      const [statsRes, txRes, usersRes, plansRes, invRes] = await Promise.all([
+      const [statsRes, txRes, usersRes, plansRes, invRes, profitRes] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/transactions'),
         api.get('/admin/users'),
         api.get('/investments/plans'),
-        api.get('/admin/investments')
+        api.get('/admin/investments'),
+        api.get('/admin/investment-profits')
       ]);
       if (statsRes.data.success) setStats(statsRes.data.data);
       if (txRes.data.success) setTransactions(txRes.data.data);
       if (usersRes.data.success) setUsers(usersRes.data.data);
       if (plansRes.data.success) setPlans(plansRes.data.data);
       if (invRes.data.success) setInvestments(invRes.data.data);
+      if (profitRes.data.success) setProfitLedger(profitRes.data.data);
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Admin data load failed:', err);
@@ -76,6 +79,33 @@ const AdminDashboardPage = () => {
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Approval action failed.');
+    }
+  };
+
+  const handleApproveProfit = async (investmentId, userName, amount) => {
+    try {
+      const res = await api.put(`/admin/investment-profits/${investmentId}/approve`, {
+        profit_amount: amount
+      });
+      if (res.data.success) {
+        showSuccess(res.data.message || `Profit payout approved for ${userName}!`);
+        await fetchAdminData();
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Profit approval failed.');
+    }
+  };
+
+  const handleApproveAllProfits = async () => {
+    if (!window.confirm('Are you sure you want to approve and credit ALL pending daily investment profits to users Available Balances?')) return;
+    try {
+      const res = await api.put('/admin/investment-profits/approve-all');
+      if (res.data.success) {
+        showSuccess(res.data.message || 'All pending investment profits approved!');
+        await fetchAdminData();
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Batch profit approval failed.');
     }
   };
 
@@ -215,6 +245,7 @@ const AdminDashboardPage = () => {
           { id: 'dashboard',   label: 'Dashboard',   icon: FiPieChart,     badge: null },
           { id: 'users',       label: 'Users',       icon: FiUsers,        badge: users.length },
           { id: 'investments', label: 'Investments', icon: FiTrendingUp,   badge: null },
+          { id: 'roi-approvals', label: 'Profit Approvals', icon: FiCheckSquare, badge: profitLedger.filter(p => p.payout_status === 'pending_approval').length },
           { id: 'deposits',    label: 'Deposits',    icon: FiArrowDownLeft,badge: pendingDeposits.length },
           { id: 'withdrawals', label: 'Withdrawals', icon: FiArrowUpRight, badge: pendingWithdrawals.length },
           { id: 'plans',       label: 'Plans',       icon: FiSliders,      badge: plans.length },
@@ -503,6 +534,130 @@ const AdminDashboardPage = () => {
                           }`}>
                             {inv.status || 'active'}
                           </span>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── 3.5 ROI PROFIT APPROVALS TAB ────────────────────────────────────── */}
+      {activeTab === 'roi-approvals' && (
+        <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden space-y-4">
+          <div className="p-6 border-b border-[#102542]/8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-extrabold text-[#102542]">Investor Profit Tracking & Approval Ledger</h3>
+              <p className="text-xs text-[#102542]/60 font-medium mt-0.5">
+                Review active investments, investment start timestamps, accrued profits earned, and approve payouts into Available Balance.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={handleApproveAllProfits}
+                className="px-4 py-2 rounded-xl gradient-gold text-[#102542] font-extrabold text-xs shadow-glow-gold flex items-center gap-1.5 shrink-0 hover:scale-105 transition-all"
+              >
+                <FiCheckSquare className="w-4 h-4" /> Approve All Pending Profits
+              </button>
+              <div className="relative w-full sm:w-64">
+                <FiSearch className="w-4 h-4 text-[#102542]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search investor or plan..."
+                  className="w-full pl-10 pr-4 py-2 bg-[#F8F4E8] border border-[#102542]/10 rounded-xl text-xs font-medium text-[#102542]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Total Active Contracts</p>
+              <p className="text-lg font-extrabold text-[#102542] mt-0.5">{profitLedger.length} Contracts</p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Total Capital Invested</p>
+              <p className="text-lg font-extrabold text-[#16A34A] mt-0.5">
+                {formatUGX(profitLedger.reduce((sum, p) => sum + parseFloat(p.invested_amount || 0), 0))}
+              </p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Accrued Profits Earned</p>
+              <p className="text-lg font-extrabold text-[#D4AF37] mt-0.5">
+                {formatUGX(profitLedger.reduce((sum, p) => sum + parseFloat(p.accrued_earnings || 0), 0))}
+              </p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Pending Profit Interval</p>
+              <p className="text-lg font-extrabold text-[#F59E0B] mt-0.5">
+                {formatUGX(profitLedger.reduce((sum, p) => sum + parseFloat(p.pending_profit || 0), 0))}
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F8F4E8]">
+                <tr className="text-[#102542]/50 uppercase tracking-widest font-extrabold text-[9px]">
+                  <th className="py-4 px-6">Investor</th>
+                  <th className="py-4 px-4">Investment Time</th>
+                  <th className="py-4 px-4">Plan & Capital</th>
+                  <th className="py-4 px-4">Earned Profits</th>
+                  <th className="py-4 px-4">Due Profit Interval</th>
+                  <th className="py-4 px-4">Available Balance</th>
+                  <th className="py-4 px-6 text-right">Administrator Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#102542]/5">
+                {profitLedger.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-xs text-[#102542]/50 font-medium">
+                      No investor contracts available for profit approval.
+                    </td>
+                  </tr>
+                ) : (
+                  profitLedger
+                    .filter(item =>
+                      (item.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (item.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (item.plan_title || '').toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(item => (
+                      <tr key={item.investment_id} className="hover:bg-[#F8F4E8]/60 transition-colors">
+                        <td className="py-4 px-6 font-extrabold text-[#102542]">
+                          <div>{item.full_name || 'Investor'}</div>
+                          <div className="text-[10px] text-[#102542]/50 font-mono">{item.email}</div>
+                        </td>
+                        <td className="py-4 px-4 text-[#102542]/70 font-mono text-[11px]">
+                          <div>{item.investment_created_at ? new Date(item.investment_created_at).toLocaleDateString() : 'N/A'}</div>
+                          <div className="text-[10px] text-[#102542]/40">
+                            {item.investment_created_at ? new Date(item.investment_created_at).toLocaleTimeString() : ''}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="font-bold text-[#D4AF37]">{item.plan_title}</div>
+                          <div className="font-extrabold text-[#16A34A]">{formatUGX(item.invested_amount)}</div>
+                        </td>
+                        <td className="py-4 px-4 font-extrabold text-[#102542]">
+                          {formatUGX(item.accrued_earnings || 0)}
+                        </td>
+                        <td className="py-4 px-4 font-extrabold text-[#F59E0B]">
+                          +{formatUGX(item.pending_profit)}
+                        </td>
+                        <td className="py-4 px-4 font-extrabold text-[#16A34A]">
+                          {formatUGX(item.user_main_balance || 0)}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            onClick={() => handleApproveProfit(item.investment_id, item.full_name, item.pending_profit)}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#16A34A] text-white font-extrabold text-[10px] hover:bg-[#15803D] transition-all flex items-center gap-1 ml-auto"
+                          >
+                            <FiCheckSquare className="w-3.5 h-3.5" /> Approve Profit to Available Balance
+                          </button>
                         </td>
                       </tr>
                     ))

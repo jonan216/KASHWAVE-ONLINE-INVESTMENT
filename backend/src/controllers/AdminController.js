@@ -401,6 +401,177 @@ class AdminController {
       res.json({ success: true, data: logs });
     } catch (err) { next(err); }
   }
+
+  // ─── Investment Profit Tracking & Approval Ledger ─────────────────────────
+  static async getInvestmentProfitLedger(req, res, next) {
+    try {
+      let ledger = [];
+      if (isPostgresConnected() && pool) {
+        const query = `
+          SELECT 
+            i.id as investment_id,
+            i.user_id,
+            i.invested_amount,
+            i.accrued_earnings,
+            i.expected_return,
+            i.status as investment_status,
+            i.created_at as investment_created_at,
+            i.last_payout_at,
+            u.full_name,
+            u.email,
+            w.main_balance as user_main_balance,
+            ip.title as plan_title,
+            ip.daily_return_percent
+          FROM investments i
+          JOIN users u ON i.user_id = u.id
+          LEFT JOIN wallets w ON i.user_id = w.user_id
+          JOIN investment_plans ip ON i.plan_id = ip.id
+          ORDER BY i.created_at DESC
+        `;
+        const result = await pool.query(query);
+        ledger = result.rows.map(row => {
+          const invested = parseFloat(row.invested_amount || 0);
+          const rate = parseFloat(row.daily_return_percent || 5.0) / 100;
+          const pendingProfit = parseFloat((invested * rate).toFixed(2));
+          return {
+            ...row,
+            pending_profit: pendingProfit,
+            payout_status: row.investment_status === 'active' ? 'pending_approval' : 'completed'
+          };
+        });
+      } else {
+        const investments = mockStore.investments || [];
+        ledger = investments.map(inv => {
+          const user = (mockStore.users || []).find(u => u.id === inv.user_id);
+          const wallet = (mockStore.wallets || []).find(w => w.user_id === inv.user_id);
+          const plan = (mockStore.plans || []).find(p => p.id === inv.plan_id);
+          const invested = parseFloat(inv.invested_amount || 0);
+          const rate = parseFloat(plan?.daily_return_percent || 5.0) / 100;
+          const pendingProfit = parseFloat((invested * rate).toFixed(2));
+          return {
+            investment_id: inv.id,
+            user_id: inv.user_id,
+            invested_amount: inv.invested_amount,
+            accrued_earnings: inv.accrued_earnings || 0,
+            expected_return: inv.expected_return,
+            investment_status: inv.status,
+            investment_created_at: inv.created_at || inv.start_date,
+            last_payout_at: inv.last_payout_at,
+            full_name: user?.full_name || 'Investor',
+            email: user?.email || 'investor@kashwave.com',
+            user_main_balance: wallet?.main_balance || 0,
+            plan_title: plan?.title || 'Saving Plan',
+            daily_return_percent: plan?.daily_return_percent || 5.0,
+            pending_profit: pendingProfit,
+            payout_status: inv.status === 'active' ? 'pending_approval' : 'completed'
+          };
+        });
+      }
+      res.json({ success: true, data: ledger });
+    } catch (err) { next(err); }
+  }
+
+  static async approveInvestmentProfit(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { profit_amount } = req.body;
+
+      if (isPostgresConnected() && pool) {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const invRes = await client.query(
+            `SELECT i.*, ip.daily_return_percent FROM investments i 
+             JOIN investment_plans ip ON i.plan_id = ip.id WHERE i.id = $1`,
+            [id]
+          );
+          const investment = invRes.rows[0];
+          if (!investment) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: 'Investment record not found.' });
+          }
+
+          const invested = parseFloat(investment.invested_amount);
+          const rate = parseFloat(investment.daily_return_percent || 5.0) / 100;
+          const calculatedProfit = profit_amount ? parseFloat(profit_amount) : parseFloat((invested * rate).toFixed(2));
+
+          // 1. Credit main_balance & total_earnings
+          await client.query(
+            `UPDATE wallets SET main_balance = main_balance + $1, total_earnings = total_earnings + $1, updated_at = NOW() WHERE user_id = $2`,
+            [calculatedProfit, investment.user_id]
+          );
+
+          // 2. Update investment earnings & payout timestamp
+          await client.query(
+            `UPDATE investments SET accrued_earnings = accrued_earnings + $1, last_payout_at = NOW() WHERE id = $2`,
+            [calculatedProfit, id]
+          );
+
+          // 3. Insert transaction log
+          const refCode = `KW-ROI-ADM-${Date.now()}-${id}`;
+          await client.query(
+            `INSERT INTO transactions (reference_code, user_id, type, amount, currency, status, payment_method, admin_notes)
+             VALUES ($1,$2,'roi_payout',$3,'UGX','completed','Admin Approval','Profit Payout Approved by Administrator')`,
+            [refCode, investment.user_id, calculatedProfit]
+          );
+
+          await client.query('COMMIT');
+          await req.audit('roi_profit_approved', {
+            userId: req.user.id,
+            description: `Admin approved UGX ${calculatedProfit} profit payout for investment ID ${id}`,
+            severity: 'info'
+          });
+
+          res.json({
+            success: true,
+            message: `Profit payout of UGX ${calculatedProfit.toLocaleString()} approved and credited to investor Available Balance!`,
+            data: { investment_id: id, approved_profit: calculatedProfit }
+          });
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+      } else {
+        const investment = (mockStore.investments || []).find(i => i.id === parseInt(id));
+        if (!investment) return res.status(404).json({ success: false, message: 'Investment not found.' });
+        const plan = (mockStore.plans || []).find(p => p.id === investment.plan_id);
+        const rate = parseFloat(plan?.daily_return_percent || 5.0) / 100;
+        const calculatedProfit = profit_amount ? parseFloat(profit_amount) : parseFloat((parseFloat(investment.invested_amount) * rate).toFixed(2));
+
+        investment.accrued_earnings = (parseFloat(investment.accrued_earnings) || 0) + calculatedProfit;
+        investment.last_payout_at = new Date().toISOString();
+
+        const wallet = (mockStore.wallets || []).find(w => w.user_id === investment.user_id);
+        if (wallet) {
+          wallet.main_balance = parseFloat(((parseFloat(wallet.main_balance) || 0) + calculatedProfit).toFixed(2));
+          wallet.total_earnings = parseFloat(((parseFloat(wallet.total_earnings) || 0) + calculatedProfit).toFixed(2));
+        }
+        res.json({
+          success: true,
+          message: `Profit payout of UGX ${calculatedProfit.toLocaleString()} approved and credited to investor Available Balance!`,
+          data: { investment_id: id, approved_profit: calculatedProfit }
+        });
+      }
+    } catch (err) { next(err); }
+  }
+
+  static async approveAllInvestmentProfits(req, res, next) {
+    try {
+      const result = await processROIPayouts();
+      await req.audit('roi_batch_profit_approval', {
+        userId: req.user.id,
+        description: `Admin batch approved daily investment profits. Processed: ${result.processedCount}, Total: UGX ${result.totalDistributed}`,
+        severity: 'info'
+      });
+      res.json({
+        success: true,
+        message: `Batch approval complete! Credited ${result.processedCount} active investment contracts with UGX ${result.totalDistributed.toLocaleString()} total profits to investor Available Balances.`,
+        data: result
+      });
+    } catch (err) { next(err); }
+  }
 }
 
 module.exports = AdminController;

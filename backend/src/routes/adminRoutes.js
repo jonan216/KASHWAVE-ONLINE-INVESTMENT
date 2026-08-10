@@ -63,8 +63,11 @@ router.post('/roi-settings', [
 router.put('/roi-settings/:id', AdminController.updateROISetting);
 router.patch('/roi-settings/:id/toggle', AdminController.toggleROISetting);
 
-// ─── ROI Payout Engine Trigger ────────────────────────────────────────────────
+// ─── ROI Payout Engine Trigger & Profit Ledger Approvals ──────────────────────
 router.post('/roi/run-payouts', AdminController.triggerROIPayouts);
+router.get('/investment-profits', AdminController.getInvestmentProfitLedger);
+router.put('/investment-profits/:id/approve', AdminController.approveInvestmentProfit);
+router.put('/investment-profits/approve-all', AdminController.approveAllInvestmentProfits);
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 router.get('/audit-logs', AdminController.getAuditLogs);
