@@ -19,6 +19,9 @@ router.get('/transactions', AdminController.getAllTransactions);
 router.put('/transactions/:id/approve', AdminController.approveTransaction);
 router.put('/transactions/:id/reject', AdminController.rejectTransaction);
 
+// ─── Investor Investments ───────────────────────────────────────────────────
+router.get('/investments', AdminController.getAllInvestments);
+
 // ─── User Management ────────────────────────────────────────────────────────
 router.get('/users', AdminController.getAllUsers);
 router.put('/users/:id/status', AdminController.updateUserStatus);

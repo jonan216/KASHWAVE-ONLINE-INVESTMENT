@@ -22,6 +22,7 @@ const AdminDashboardPage = () => {
   const [transactions, setTransactions] = useState([]);
   const [users, setUsers]               = useState([]);
   const [plans, setPlans]               = useState([]);
+  const [investments, setInvestments]   = useState([]);
   const [loading, setLoading]           = useState(true);
   const [lastUpdated, setLastUpdated]   = useState(null);
 
@@ -37,16 +38,18 @@ const AdminDashboardPage = () => {
 
   const fetchAdminData = async () => {
     try {
-      const [statsRes, txRes, usersRes, plansRes] = await Promise.all([
+      const [statsRes, txRes, usersRes, plansRes, invRes] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/transactions'),
         api.get('/admin/users'),
-        api.get('/investments/plans')
+        api.get('/investments/plans'),
+        api.get('/admin/investments')
       ]);
       if (statsRes.data.success) setStats(statsRes.data.data);
       if (txRes.data.success) setTransactions(txRes.data.data);
       if (usersRes.data.success) setUsers(usersRes.data.data);
       if (plansRes.data.success) setPlans(plansRes.data.data);
+      if (invRes.data.success) setInvestments(invRes.data.data);
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Admin data load failed:', err);
@@ -365,13 +368,103 @@ const AdminDashboardPage = () => {
 
       {/* ── 3. INVESTMENTS LEDGER TAB ────────────────────────────────────────── */}
       {activeTab === 'investments' && (
-        <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft p-6 sm:p-8 space-y-4">
-          <h3 className="text-base font-extrabold text-[#102542]">Active Investments Ledger</h3>
-          <p className="text-xs text-[#102542]/60 font-medium">All active 60-day investment contracts currently yielding 5% daily ROI</p>
-          <div className="p-8 text-center text-xs text-[#102542]/50 bg-[#F8F4E8] rounded-2xl border border-[#102542]/8">
-            <FiTrendingUp className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
-            <p className="font-extrabold text-[#102542]">Automated Daily Payout Engine Running</p>
-            <p className="mt-1">Returns are calculated Monday through Friday at 00:00 EAT with 60-day capital lock enforcement.</p>
+        <div className="bg-white rounded-4xl border border-[#102542]/8 shadow-soft overflow-hidden space-y-4">
+          <div className="p-6 border-b border-[#102542]/8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-extrabold text-[#102542]">Active Investor Investments Directory</h3>
+              <p className="text-xs text-[#102542]/60 font-medium mt-0.5">
+                Real-time tracking of investors, invested capital, 5% daily ROI accruals, and 60-day maturity locks.
+              </p>
+            </div>
+            <div className="relative w-full sm:w-64">
+              <FiSearch className="w-4 h-4 text-[#102542]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search by investor or plan..."
+                className="w-full pl-10 pr-4 py-2 bg-[#F8F4E8] border border-[#102542]/10 rounded-xl text-xs font-medium text-[#102542]"
+              />
+            </div>
+          </div>
+
+          <div className="px-6 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Total Active Contracts</p>
+              <p className="text-lg font-extrabold text-[#102542] mt-0.5">{investments.length} Active</p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Total Capital Invested</p>
+              <p className="text-lg font-extrabold text-[#16A34A] mt-0.5">
+                {formatUGX(investments.reduce((sum, i) => sum + parseFloat(i.invested_amount || 0), 0))}
+              </p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Expected Gross Yield</p>
+              <p className="text-lg font-extrabold text-[#D4AF37] mt-0.5">
+                {formatUGX(investments.reduce((sum, i) => sum + parseFloat(i.expected_return || 0), 0))}
+              </p>
+            </div>
+            <div className="bg-[#F8F4E8] p-3.5 rounded-2xl border border-[#102542]/8">
+              <p className="text-[9px] text-[#102542]/50 font-extrabold uppercase">Daily ROI Payout</p>
+              <p className="text-lg font-extrabold text-[#102542] mt-0.5">5.0% / Mon-Fri</p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F8F4E8]">
+                <tr className="text-[#102542]/50 uppercase tracking-widest font-extrabold text-[9px]">
+                  <th className="py-4 px-6">Investor</th>
+                  <th className="py-4 px-4">Investment Plan</th>
+                  <th className="py-4 px-4">Invested Amount</th>
+                  <th className="py-4 px-4">Expected Return</th>
+                  <th className="py-4 px-4">Start Date</th>
+                  <th className="py-4 px-4">Maturity Date</th>
+                  <th className="py-4 px-6 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#102542]/5">
+                {investments.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-xs text-[#102542]/50 font-medium">
+                      No active investments recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  investments
+                    .filter(inv =>
+                      (inv.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (inv.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (inv.plan_title || '').toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(inv => (
+                      <tr key={inv.id} className="hover:bg-[#F8F4E8]/60 transition-colors">
+                        <td className="py-4 px-6 font-extrabold text-[#102542]">
+                          <div>{inv.full_name || 'Investor'}</div>
+                          <div className="text-[10px] text-[#102542]/50 font-mono">{inv.email}</div>
+                        </td>
+                        <td className="py-4 px-4 font-bold text-[#D4AF37]">{inv.plan_title || 'Saving Plan'}</td>
+                        <td className="py-4 px-4 font-extrabold text-[#16A34A]">{formatUGX(inv.invested_amount)}</td>
+                        <td className="py-4 px-4 font-extrabold text-[#102542]">{formatUGX(inv.expected_return)}</td>
+                        <td className="py-4 px-4 text-[#102542]/70 font-mono text-[11px]">
+                          {inv.start_date ? new Date(inv.start_date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="py-4 px-4 text-[#102542]/70 font-mono text-[11px]">
+                          {inv.end_date ? new Date(inv.end_date).toLocaleDateString() : '60 Days'}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase ${
+                            inv.status === 'active' ? 'bg-[#16A34A]/10 text-[#16A34A]' : 'bg-[#102542]/10 text-[#102542]'
+                          }`}>
+                            {inv.status || 'active'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

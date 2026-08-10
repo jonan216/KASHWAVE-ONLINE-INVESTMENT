@@ -96,6 +96,14 @@ class AdminController {
     } catch (err) { next(err); }
   }
 
+  // ─── Investments ──────────────────────────────────────────────────────────
+  static async getAllInvestments(req, res, next) {
+    try {
+      const investments = await InvestmentModel.getAll();
+      res.json({ success: true, data: investments });
+    } catch (err) { next(err); }
+  }
+
   // ─── User Management ──────────────────────────────────────────────────────
   static async getAllUsers(req, res, next) {
     try {

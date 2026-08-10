@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "build": "cd frontend && npm run build",
-    "postinstall": "cd frontend && npm install && cd ../backend && npm install"
+    "postinstall": "cd frontend && npm install && cd ../backend && npm install",
+    "push": "git add . && git commit -m \"Update project files and code\" && git push origin main",
+    "sync": "git add . && git commit -m \"Update project files and code\" && git push origin main"
   },
   "dependencies": {},
   "devDependencies": {}
