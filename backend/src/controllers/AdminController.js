@@ -122,6 +122,31 @@ class AdminController {
     } catch (err) { next(err); }
   }
 
+  static async deleteUser(req, res, next) {
+    try {
+      const { id } = req.params;
+      if (parseInt(id) === req.user.id) {
+        return res.status(400).json({ success: false, message: 'You cannot delete your own administrative account.' });
+      }
+
+      const deletedUser = await UserModel.deleteUserById(id);
+      if (!deletedUser) {
+        return res.status(404).json({ success: false, message: 'User account not found.' });
+      }
+
+      await req.audit('user_deleted_by_admin', {
+        userId: req.user.id,
+        description: `Admin deleted user ${deletedUser.full_name} (${deletedUser.email})`,
+        severity: 'warning'
+      });
+
+      res.json({
+        success: true,
+        message: `User account for ${deletedUser.full_name} has been permanently deleted from the system.`
+      });
+    } catch (err) { next(err); }
+  }
+
   // ─── User Management ──────────────────────────────────────────────────────
   static async getAllUsers(req, res, next) {
     try {

@@ -235,6 +235,38 @@ class UserModel {
       return { count: testUserIds.length, deletedUsers: testUsers };
     }
   }
+
+  static async deleteUserById(userId) {
+    const id = parseInt(userId);
+    if (isPostgresConnected() && pool) {
+      const userRes = await pool.query('SELECT id, email, full_name, role FROM users WHERE id = $1', [id]);
+      const user = userRes.rows[0];
+      if (!user) return null;
+
+      await pool.query(`DELETE FROM audit_logs WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM kyc_verification WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM investments WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM transactions WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`, [id]);
+      await pool.query(`DELETE FROM wallets WHERE user_id = $1`, [id]);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+
+      return user;
+    } else {
+      const user = (mockStore.users || []).find(u => u.id === id);
+      if (!user) return null;
+
+      mockStore.users = (mockStore.users || []).filter(u => u.id !== id);
+      mockStore.wallets = (mockStore.wallets || []).filter(w => w.user_id !== id);
+      mockStore.transactions = (mockStore.transactions || []).filter(t => t.user_id !== id);
+      mockStore.investments = (mockStore.investments || []).filter(i => i.user_id !== id);
+      mockStore.referrals = (mockStore.referrals || []).filter(r => r.referrer_id !== id && r.referee_id !== id);
+
+      return user;
+    }
+  }
 }
 
 module.exports = UserModel;

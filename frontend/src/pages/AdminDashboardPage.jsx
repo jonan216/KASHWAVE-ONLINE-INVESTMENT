@@ -133,6 +133,19 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to permanently delete investor "${userName}" (ID: ${userId})? This will delete all associated wallet and transaction records and CANNOT be undone.`)) return;
+    try {
+      const res = await api.delete(`/admin/users/${userId}`);
+      if (res.data.success) {
+        showSuccess(res.data.message || `User "${userName}" deleted successfully.`);
+        await fetchAdminData();
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to delete user.');
+    }
+  };
+
   if (loading) return <LoadingSpinner text="Loading KashWave Executive Admin Console..." />;
 
   // Filtered Lists
@@ -368,16 +381,25 @@ const AdminDashboardPage = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       {u.role !== 'admin' && (
-                        <button
-                          onClick={() => handleToggleUserStatus(u.id, u.status)}
-                          className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all flex items-center gap-1 ml-auto ${
-                            u.status === 'active'
-                              ? 'bg-[#DC2626]/10 text-[#DC2626] hover:bg-[#DC2626] hover:text-white'
-                              : 'bg-[#16A34A]/10 text-[#16A34A] hover:bg-[#16A34A] hover:text-white'
-                          }`}
-                        >
-                          {u.status === 'active' ? <><FiUserX /> Suspend User</> : <><FiUserCheck /> Activate User</>}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleToggleUserStatus(u.id, u.status)}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition-all flex items-center gap-1 ${
+                              u.status === 'active'
+                                ? 'bg-[#F59E0B]/10 text-[#F59E0B] hover:bg-[#F59E0B] hover:text-white'
+                                : 'bg-[#16A34A]/10 text-[#16A34A] hover:bg-[#16A34A] hover:text-white'
+                            }`}
+                          >
+                            {u.status === 'active' ? <><FiUserX /> Suspend</> : <><FiUserCheck /> Activate</>}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.full_name)}
+                            className="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 hover:bg-[#DC2626] hover:text-white transition-all flex items-center gap-1"
+                            title="Permanently remove user from system"
+                          >
+                            <FiTrash2 /> Delete
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
