@@ -243,15 +243,23 @@ class UserModel {
       const user = userRes.rows[0];
       if (!user) return null;
 
-      await pool.query(`DELETE FROM audit_logs WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM kyc_verification WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM investments WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM transactions WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`, [id]);
-      await pool.query(`DELETE FROM wallets WHERE user_id = $1`, [id]);
-      await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+      try {
+        await pool.query('SELECT delete_user_cascade($1)', [id]);
+      } catch (rpcErr) {
+        // Fallback to explicit DELETE queries if RPC function is not installed yet
+        await pool.query(`DELETE FROM audit_logs WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM kyc_verification WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM payment_transactions WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM investments WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM transactions WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM deposits WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM withdrawals WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM notifications WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM referrals WHERE referrer_id = $1 OR referee_id = $1`, [id]);
+        await pool.query(`DELETE FROM wallets WHERE user_id = $1`, [id]);
+        await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
+      }
 
       return user;
     } else {
