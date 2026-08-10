@@ -78,6 +78,8 @@ const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
   };
 };
 
+const initPayment = initiateDeposit;
+
 const verifyPayment = async (reference) => {
   try {
     const response = await request(`/payments/${encodeURIComponent(reference)}`, 'GET');
