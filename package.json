@@ -2,8 +2,8 @@
   "name": "kashwave-root",
   "private": true,
   "scripts": {
-    "build": "cd frontend && npm run build && cp public/_redirects dist/_redirects",
-    "postinstall": "cd frontend && npm install"
+    "build": "cd frontend && npm run build",
+    "postinstall": "cd frontend && npm install && cd ../backend && npm install"
   },
   "dependencies": {},
   "devDependencies": {}

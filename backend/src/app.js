@@ -176,18 +176,18 @@ app.use((req, res) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// Always test DB connection, start server only locally
-testConnection().then(() => {
-  const connected = isPostgresConnected();
-  console.log(connected ? 'PostgreSQL Database Connected Successfully.' : 'Using in-memory Mock Store mode.');
-  if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+// Start standalone server only when app.js is executed directly (not when required as a serverless function)
+if (require.main === module) {
+  testConnection().then(() => {
+    const connected = isPostgresConnected();
+    console.log(connected ? 'PostgreSQL Database Connected Successfully.' : 'Using in-memory Mock Store mode.');
     app.listen(env.PORT, () => {
       console.log(`=======================================================`);
       console.log(`  KASHWAVE API Server running on port ${env.PORT}`);
       console.log(`  Environment: ${env.NODE_ENV}`);
       console.log(`=======================================================`);
     });
-  }
-});
+  });
+}
 
 module.exports = app;

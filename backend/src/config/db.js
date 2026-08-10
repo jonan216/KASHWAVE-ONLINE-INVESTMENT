@@ -109,7 +109,7 @@ if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
   try {
     pool = new Pool(
       env.DATABASE_URL
-        ? { connectionString: env.DATABASE_URL, ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false }
+        ? { connectionString: env.DATABASE_URL, ssl: env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, connectionTimeoutMillis: 3000 }
         : {
             user: env.PGUSER,
             password: env.PGPASSWORD,
@@ -117,6 +117,7 @@ if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
             port: env.PGPORT,
             database: env.PGDATABASE,
             ssl: env.NODE_ENV === 'production' || env.PGHOST?.includes('supabase') ? { rejectUnauthorized: false } : false,
+            connectionTimeoutMillis: 3000
           }
     );
 

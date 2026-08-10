@@ -1,15 +1,17 @@
 /**
  * Marz Innovations — Primary Payment Provider
- * Central deposit/withdrawal processor for KashWave
- * API Base: https://wallet.wearemarz.com/API/v1
- * Supports: MTN Mobile Money, Airtel Money, M-Pesa
+ * Docs: https://wallet.wearemarz.com/documentation
+ * Base URL: https://wallet.wearemarz.com/api/v1
  */
 const https = require('https');
+const { URL } = require('url');
 const env = require('../../config/env');
 
-const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/API/v1';
+const MARZ_BASE_URL = env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/api/v1';
 const MARZ_API_KEY = env.MARZ_INNOVATIONS_API_KEY;
 const MARZ_API_SECRET = env.MARZ_INNOVATIONS_API_SECRET;
+
+const basicAuth = Buffer.from(`${MARZ_API_KEY}:${MARZ_API_SECRET}`).toString('base64');
 
 const request = (path, method = 'GET', body = null) => {
   return new Promise((resolve, reject) => {
@@ -25,8 +27,7 @@ const request = (path, method = 'GET', body = null) => {
       path: url.pathname + url.search,
       method,
       headers: {
-        'Authorization': `Bearer ${MARZ_API_KEY}`,
-        'X-API-Secret': MARZ_API_SECRET,
+        'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/json',
         ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
       }
@@ -56,41 +57,39 @@ const request = (path, method = 'GET', body = null) => {
 };
 
 const initiateDeposit = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = `KW-DEP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
 
-  const response = await request('/payments/initiate', 'POST', {
-    amount: Number(amount),
-    currency: 'UGX',
+  const response = await request('/collect-money', 'POST', {
+    amount: { formatted: Number(amount).toLocaleString(), raw: Number(amount), currency: 'UGX' },
     reference,
-    customer_phone: phone,
-    payment_method: method,
-    merchant_id: 'kashwave'
+    country: 'UG',
+    phone_number: phone,
+    description: `KashWave deposit from ${phone}`,
+    callback_url: `${env.CLIENT_ORIGIN || 'https://kashwave-online-investment.vercel.app'}/api/webhooks/marz`
   });
 
   return {
     provider: 'marz_innovations',
-    reference: response.reference || reference,
-    transaction_id: response.transaction_id || response.id,
-    status: response.status || 'pending',
-    message: response.message || 'Payment request sent. Please check your phone for PIN prompt.',
-    payment_link: response.payment_link || response.checkout_url,
+    reference: response.data?.collection?.reference || response.reference || reference,
+    transaction_id: response.data?.collection?.id || response.data?.collection?.provider_transaction_id || response.id,
+    status: response.data?.collection?.status || response.status || 'pending',
+    message: response.data?.collection?.message || response.message || 'Payment request sent. Please check your phone for PIN prompt.',
     raw: response
   };
 };
 
-const initPayment = initiateDeposit;
-
 const verifyPayment = async (reference) => {
   try {
-    const response = await request(`/payments/${encodeURIComponent(reference)}`, 'GET');
-    const status = (response.status || '').toLowerCase();
+    const response = await request(`/collect-money/${encodeURIComponent(reference)}`, 'GET');
+    const collection = response.data?.collection || response;
+    const status = (collection.status || '').toLowerCase();
     return {
       verified: status === 'success' || status === 'completed' || status === 'paid',
       reference,
-      status: response.status,
-      amount: response.amount,
-      currency: response.currency,
-      transaction_id: response.transaction_id || response.id,
+      status: collection.status,
+      amount: collection.amount?.raw || collection.amount,
+      currency: collection.amount?.currency || 'UGX',
+      transaction_id: collection.id || collection.provider_transaction_id,
       raw: response
     };
   } catch (err) {
@@ -100,25 +99,28 @@ const verifyPayment = async (reference) => {
 };
 
 const initiateWithdrawal = async ({ amount, phone, method = 'mtn' }) => {
-  const reference = `KW-WD-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  const reference = `${Date.now()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
 
-  const response = await request('/withdrawals/initiate', 'POST', {
-    amount: Number(amount),
-    currency: 'UGX',
+  const response = await request('/send-money', 'POST', {
+    amount: { formatted: Number(amount).toLocaleString(), raw: Number(amount), currency: 'UGX' },
     reference,
-    destination_phone: phone,
-    payment_method: method
+    country: 'UG',
+    phone_number: phone,
+    description: `KashWave withdrawal to ${phone}`,
+    callback_url: `${env.CLIENT_ORIGIN || 'https://kashwave-online-investment.vercel.app'}/api/webhooks/marz`
   });
 
   return {
     provider: 'marz_innovations',
-    reference: response.reference || reference,
-    transaction_id: response.transaction_id || response.id,
-    status: response.status || 'pending',
-    message: response.message || 'Withdrawal initiated. Processing...',
+    reference: response.data?.withdrawal?.reference || response.reference || reference,
+    transaction_id: response.data?.withdrawal?.id || response.data?.withdrawal?.provider_transaction_id || response.id,
+    status: response.data?.withdrawal?.status || response.status || 'pending',
+    message: response.data?.withdrawal?.message || response.message || 'Withdrawal initiated. Processing...',
     raw: response
   };
 };
+
+const initPayment = initiateDeposit;
 
 module.exports = {
   initPayment,

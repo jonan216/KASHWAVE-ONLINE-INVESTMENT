@@ -3,10 +3,7 @@ require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
 function requireSecret(name, value) {
   if (!value) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(`FATAL: Missing required environment variable ${name}. Application will not start.`);
-    }
-    console.warn(`[CONFIG] WARNING: ${name} is not set. Using ephemeral random secret for development only.`);
+    console.warn(`[CONFIG] WARNING: Required secret ${name} is not set. Using ephemeral fallback secret.`);
     return require('crypto').randomBytes(64).toString('hex');
   }
   return value;
