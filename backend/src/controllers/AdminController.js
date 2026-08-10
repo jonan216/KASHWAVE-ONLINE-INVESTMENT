@@ -106,6 +106,22 @@ class AdminController {
     } catch (err) { next(err); }
   }
 
+  static async purgeTestAccounts(req, res, next) {
+    try {
+      const result = await UserModel.purgeTestAccounts();
+      await req.audit('test_accounts_purged', {
+        userId: req.user.id,
+        description: `Purged ${result.count} test user account(s).`,
+        severity: 'warning'
+      });
+      res.json({
+        success: true,
+        message: `Successfully purged ${result.count} test account(s) from the system.`,
+        data: result
+      });
+    } catch (err) { next(err); }
+  }
+
   // ─── User Management ──────────────────────────────────────────────────────
   static async getAllUsers(req, res, next) {
     try {

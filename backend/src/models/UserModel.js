@@ -198,6 +198,43 @@ class UserModel {
       if (user) user.is_email_verified = verified;
     }
   }
+
+  static async purgeTestAccounts() {
+    if (isPostgresConnected() && pool) {
+      const testUsersRes = await pool.query(
+        `SELECT id, email, full_name FROM users 
+         WHERE LOWER(email) LIKE '%test%' 
+            OR LOWER(full_name) LIKE '%test%'`
+      );
+      const testUserIds = testUsersRes.rows.map(u => u.id);
+      if (testUserIds.length === 0) return { count: 0, deletedUsers: [] };
+
+      await pool.query(`DELETE FROM audit_logs WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM refresh_tokens WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM kyc_verification WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM payment_transactions WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM investments WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM transactions WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM referrals WHERE referrer_id = ANY($1::int[]) OR referee_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM wallets WHERE user_id = ANY($1::int[])`, [testUserIds]);
+      await pool.query(`DELETE FROM users WHERE id = ANY($1::int[])`, [testUserIds]);
+
+      return { count: testUserIds.length, deletedUsers: testUsersRes.rows };
+    } else {
+      const testUsers = (mockStore.users || []).filter(
+        u => (u.email || '').toLowerCase().includes('test') || (u.full_name || '').toLowerCase().includes('test')
+      );
+      const testUserIds = testUsers.map(u => u.id);
+
+      mockStore.users = (mockStore.users || []).filter(u => !testUserIds.includes(u.id));
+      mockStore.wallets = (mockStore.wallets || []).filter(w => !testUserIds.includes(w.user_id));
+      mockStore.transactions = (mockStore.transactions || []).filter(t => !testUserIds.includes(t.user_id));
+      mockStore.investments = (mockStore.investments || []).filter(i => !testUserIds.includes(i.user_id));
+      mockStore.referrals = (mockStore.referrals || []).filter(r => !testUserIds.includes(r.referrer_id) && !testUserIds.includes(r.referee_id));
+
+      return { count: testUserIds.length, deletedUsers: testUsers };
+    }
+  }
 }
 
 module.exports = UserModel;

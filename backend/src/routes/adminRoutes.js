@@ -24,6 +24,7 @@ router.get('/investments', AdminController.getAllInvestments);
 
 // ─── User Management ────────────────────────────────────────────────────────
 router.get('/users', AdminController.getAllUsers);
+router.delete('/users/purge-test-accounts', AdminController.purgeTestAccounts);
 router.put('/users/:id/status', AdminController.updateUserStatus);
 router.get('/users/:id/audit-logs', AdminController.getUserAuditLogs);
 

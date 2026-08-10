@@ -9,7 +9,7 @@ import {
   FiShield, FiUsers, FiDollarSign, FiCheckSquare, FiAlertCircle,
   FiCheck, FiX, FiSettings, FiPlus, FiLock, FiPieChart,
   FiFileText, FiArrowUpRight, FiArrowDownLeft, FiRefreshCw,
-  FiUserCheck, FiUserX, FiTrendingUp, FiSearch, FiSliders, FiDownload
+  FiUserCheck, FiUserX, FiTrendingUp, FiSearch, FiSliders, FiDownload, FiTrash2
 } from 'react-icons/fi';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 
@@ -117,6 +117,19 @@ const AdminDashboardPage = () => {
       }
     } catch (err) {
       showError(err.response?.data?.message || 'Plan creation failed.');
+    }
+  };
+
+  const handlePurgeTestAccounts = async () => {
+    if (!window.confirm('Are you sure you want to permanently remove all test accounts (users with "test" in email or name) from the system?')) return;
+    try {
+      const res = await api.delete('/admin/users/purge-test-accounts');
+      if (res.data.success) {
+        showSuccess(res.data.message || 'Test accounts purged successfully!');
+        await fetchAdminData();
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || 'Purging test accounts failed.');
     }
   };
 
@@ -306,15 +319,24 @@ const AdminDashboardPage = () => {
               <h3 className="text-base font-extrabold text-[#102542]">User Management Directory</h3>
               <p className="text-xs text-[#102542]/60 font-medium mt-0.5">Manage registered investor profiles, suspend accounts, and view balances.</p>
             </div>
-            <div className="relative w-full sm:w-64">
-              <FiSearch className="w-4 h-4 text-[#102542]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search investor by name or email..."
-                className="w-full pl-10 pr-4 py-2 bg-[#F8F4E8] border border-[#102542]/10 rounded-xl text-xs font-medium text-[#102542]"
-              />
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button
+                onClick={handlePurgeTestAccounts}
+                className="px-3.5 py-2 rounded-xl bg-[#DC2626]/10 text-[#DC2626] border border-[#DC2626]/20 font-extrabold text-xs hover:bg-[#DC2626] hover:text-white transition-all flex items-center gap-1.5 shrink-0"
+                title="Remove all test accounts with 'test' in email or name"
+              >
+                <FiTrash2 className="w-3.5 h-3.5" /> Purge Test Accounts
+              </button>
+              <div className="relative w-full sm:w-64">
+                <FiSearch className="w-4 h-4 text-[#102542]/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search investor by name or email..."
+                  className="w-full pl-10 pr-4 py-2 bg-[#F8F4E8] border border-[#102542]/10 rounded-xl text-xs font-medium text-[#102542]"
+                />
+              </div>
             </div>
           </div>
 
