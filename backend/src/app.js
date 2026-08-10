@@ -148,11 +148,34 @@ app.get('/api/health', (req, res) => {
 app.get('/api/dbtest', async (req, res) => {
   try {
     const { pool, isPostgresConnected } = require('./config/db');
-    if (!pool) return res.json({ connected: false, reason: 'no_pool' });
-    const client = await pool.connect();
-    const r = await client.query('SELECT NOW()');
-    client.release();
-    res.json({ connected: true, time: r.rows[0].now, isPostgresConnected });
+    const { testConnection: testMarzConnection } = require('./services/providers/marzInnovationsProvider');
+    const env = require('./config/env');
+
+    let dbResult = { connected: false };
+    if (pool) {
+      try {
+        const client = await pool.connect();
+        const r = await client.query('SELECT NOW()');
+        client.release();
+        dbResult = { connected: true, time: r.rows[0].now, isPostgresConnected: isPostgresConnected() };
+      } catch (dberr) {
+        dbResult = { connected: false, error: dberr.message };
+      }
+    }
+
+    const marzResult = await testMarzConnection();
+
+    res.json({
+      db: dbResult,
+      marzpay: {
+        credentials_configured: !!(env.MARZ_INNOVATIONS_API_KEY && env.MARZ_INNOVATIONS_API_SECRET),
+        api_key_set: !!env.MARZ_INNOVATIONS_API_KEY,
+        api_secret_set: !!env.MARZ_INNOVATIONS_API_SECRET,
+        base_url: env.MARZ_INNOVATIONS_BASE_URL || 'https://wallet.wearemarz.com/api/v1',
+        callback_url: env.MARZPAY_CALLBACK_URL || 'https://kashwave-online-investment.vercel.app/api/webhooks/marz',
+        ...marzResult
+      }
+    });
   } catch (e) {
     res.json({ connected: false, error: e.message });
   }
