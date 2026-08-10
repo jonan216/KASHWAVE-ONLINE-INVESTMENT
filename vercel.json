@@ -12,6 +12,12 @@
       "use": "@vercel/node"
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/process-roi",
+      "schedule": "0 * * * *"
+    }
+  ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/backend/api/index.js" },
     { "handle": "filesystem" },

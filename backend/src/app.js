@@ -22,6 +22,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const userRoutes = require('./routes/userRoutes');
 const kycRoutes = require('./routes/kycRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
+const cronRoutes = require('./routes/cronRoutes');
 
 const app = express();
 
@@ -165,6 +166,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/cron', cronRoutes);
 
 app.use(maskSensitiveData);
 
